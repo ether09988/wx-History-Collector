@@ -130,10 +130,21 @@ Want just the address book, not the chat history:
 python3 wx_export.py --contacts --refresh --out contacts.json
 ```
 
-By default this exports **friends + groups + WeCom accounts** (**not** official accounts).
-Add `--contacts-scope all` to also include official accounts, the non-friend cache
-(group members, people you added but who never accepted) and system accounts — that is an
-order of magnitude larger.
+By default the output **matches the counts shown in WeChat's own
+Settings → Contacts Management page**:
+
+| `type` | WeChat label |
+|---|---|
+| `friend` | Contacts |
+| `group` | Group chats (saved to contacts) |
+| `wecom` | WeCom contacts |
+| `official` | Official accounts |
+| `service` | Service accounts |
+| `enterprise` | My enterprise |
+
+Add `--contacts-scope all` to additionally export: groups not saved to contacts, official
+accounts you followed historically but which are no longer in contacts, the non-friend cache
+(group members, pending requests) and system accounts — an order of magnitude larger.
 
 Each record contains:
 

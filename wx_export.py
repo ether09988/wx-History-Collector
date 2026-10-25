@@ -256,24 +256,33 @@ SYSTEM_ACCOUNTS = {
 }
 
 
-CONTACT_TYPE_ORDER = {"friend": 0, "group": 1, "official": 2, "openim": 3,
-                       "other": 4, "stranger": 5, "system": 6}
+CONTACT_TYPE_ORDER = {"friend": 0, "group": 1, "wecom": 2, "official": 3,
+                       "service": 4, "enterprise": 5, "official_other": 6,
+                       "group_unsaved": 7, "stranger": 8, "openim_other": 9,
+                       "other": 10, "system": 11}
+
+# 微信「通讯录」里实际会显示的类别（对齐 App 内「通讯录管理」页面）
+ADDRESSBOOK_TYPES = {"friend", "group", "wecom", "official", "service", "enterprise"}
 
 
 def export_contacts(ddir: str, scope: str = "addressbook"):
     """导出通讯录。
 
     scope:
-      addressbook（默认）—— 好友 + 群 + 企业微信账号（不含公众号）
-      all                —— 全部：再加上公众号、非好友缓存与系统号
+      addressbook（默认）—— 与微信「通讯录管理」页面一致：
+                            联系人 + 群聊 + 企业微信 + 公众号/服务号/我的企业
+      all                —— 全部记录：再加未保存到通讯录的群、陌生人缓存、系统号
     """
     con = open_db(os.path.join(ddir, "contact", "contact.db"))
     if con is None:
         print("[ERROR] 找不到 contact.db，无法导出通讯录", file=sys.stderr)
         return None, None
     try:
+        # biz_info.type 用来区分 公众号(0) / 服务号(1) / 我的企业(2) / 其他(3)
         rows = con.execute(
-            "select username, nick_name, remark, alias, local_type, delete_flag from contact"
+            "select c.username, c.nick_name, c.remark, c.alias, c.local_type, "
+            "       c.delete_flag, b.type "
+            "from contact c left join biz_info b on c.username = b.username"
         ).fetchall()
     except Exception as e:
         print(f"[ERROR] 读取通讯录失败: {e}", file=sys.stderr)
@@ -283,12 +292,13 @@ def export_contacts(ddir: str, scope: str = "addressbook"):
 
     stats = {}
     events = []
-    for username, nick, remark, alias, lt, deleted in rows:
+    for username, nick, remark, alias, lt, deleted, biz_type in rows:
         if not username:
             continue
-        ctype = classify_contact(username, int(lt or 0))
+        ctype = classify_contact(username, int(lt or 0),
+                                 int(biz_type) if biz_type is not None else None)
         stats[ctype] = stats.get(ctype, 0) + 1
-        if scope != "all" and ctype not in ("friend", "group", "openim"):
+        if scope != "all" and ctype not in ADDRESSBOOK_TYPES:
             continue
         remark = (remark or "").strip()
         nick = (nick or "").strip()
@@ -310,32 +320,49 @@ def export_contacts(ddir: str, scope: str = "addressbook"):
     return events, stats
 
 
-def classify_contact(username: str, local_type: int) -> str:
+def classify_contact(username: str, local_type: int, biz_type: int = None) -> str:
     """把一条 contact 记录归类。
 
-    注意：不能用「wxid_ 开头」判断是不是真人——大量老用户把微信号设成了
-    自定义字符串（如 xingxing123），那些同样是真实好友。
+    判据全部来自实测比对微信「通讯录管理」页面：
+      - 群聊 283  ⇔  local_type=1 且 username 以 @chatroom 结尾（未保存的群 local_type 不是 1）
+      - 我的企业 3 ⇔  local_type=1 且 biz_info.type=2
+      - 企业微信 25 ⇔  local_type=5
+      - 公众号/服务号 ⇔ biz_info.type 为 0 / 1
+    注意：[不可用] local_type=0 判断公众号——那个值里混着上千个真人账号。
     """
     u = (username or "").lower()
     if not u:
         return "other"
-    # 群：@chatroom 结尾是最可靠的判据（local_type=2 的数量反而更少，不可靠）
+
+    # 群：保存到通讯录的群 local_type=1；其余（未保存）是别的值
     if u.endswith("@chatroom") or u.endswith("@im.chatroom"):
-        return "group"
+        return "group" if local_type == 1 else "group_unsaved"
+
     if u.endswith("@openim"):
-        return "openim"          # 企业微信 / 开放 IM 账号
+        return "wecom" if local_type == 5 else "openim_other"
+
     if u.endswith("@placeholder_foldgroup") or u.endswith("@placeholder_stickyfooter"):
         return "system"
     if u in SYSTEM_ACCOUNTS:
         return "system"
-    # 公众号：只认 gh_ 前缀。不能用 local_type==0 判断——实测那个字段里混着
-    # 大量真人账号（wxid 与自定义微信号），按它分类会把 1500+ 个真人误判成公众号。
+
+    # 公众号类：只有 local_type=1 的才在「通讯录」里；
+    # 其余是历史上关注过/浏览过、已不在通讯录的公众号
     if u.startswith("gh_"):
-        return "official"
+        if local_type != 1:
+            return "official_other"
+        if biz_type == 0:
+            return "official"     # 公众号（订阅号）
+        if biz_type == 1:
+            return "service"      # 服务号
+        if biz_type == 2:
+            return "enterprise"   # 我的企业
+        return "official_other"
+
     if local_type == 1:
         return "friend"
     if local_type in (0, 3):
-        return "stranger"        # 非好友：群成员、曾加过未通过、已删好友
+        return "stranger"         # 非好友：群成员、加过未通过、已删好友
     return "other"
 
 

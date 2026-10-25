@@ -178,18 +178,29 @@ python "<仓库目录>\wx_export.py" --contacts --refresh --out contacts.json
 | 参数 | 作用 |
 |---|---|
 | `--contacts` | 导出通讯录而不是聊天消息 |
-| `--contacts-scope addressbook` | 默认。好友 + 群 + 企业微信账号（**不含公众号**） |
-| `--contacts-scope all` | 全部：再加公众号、非好友缓存（群成员等）、系统号，数量大一个量级 |
+| `--contacts-scope addressbook` | 默认。与微信「通讯录管理」页面数量一致 |
+| `--contacts-scope all` | 全部：再加未保存的群、历史公众号、非好友缓存、系统号 |
 
 **字段**：`wxid` / `name`（备注>昵称>自定义号>wxid）/ `remark` / `nickname` / `alias` /
 `type`（friend/group/openim/official/stranger/system）/ `deleted`。
 
-**分类判据（改代码时别踩这个坑）**：
+**分类判据（已与微信 App 逐项核对，改代码前务必看懂）**：
 
-- 群 = `@chatroom` 结尾（`local_type=2` 反而统计不全，不要用）
-- 公众号 = `gh_` 前缀（**不要用 `local_type==0`**，那个字段里混着大量真人账号）
-- 好友 = `local_type=1`
-- 非好友 = `local_type` 为 0 或 3
+| 输出 type | 判据 | 实测（某账号） |
+|---|---|---|
+| `friend` | `local_type=1` 且非群、非 gh_、非系统号 | 5196 |
+| `group` | `local_type=1` 且 `@chatroom` 结尾（**已保存到通讯录**） | 283 |
+| `group_unsaved` | 群但 `local_type != 1`（**没保存到通讯录**） | 1107 |
+| `wecom` | `local_type=5` | 25 |
+| `official` / `service` / `enterprise` | `local_type=1` 且 `gh_` 前缀，再看 `biz_info.type` = 0 / 1 / 2 | 23 / 15 / 3 |
+| `official_other` | `gh_` 但 `local_type != 1`（历史关注，已不在通讯录） | 1256 |
+| `stranger` | `local_type` 为 0 或 3 | 39976 |
+
+**三个绝对不能用的判据**：
+
+1. 不能用 `local_type=0` 判断公众号——那是「非好友」，里面混着上千个真人账号。
+2. 不能用 `local_type=2` 统计群——它只有 1158 条，比真实的群总数少。
+3. 不能用「`wxid_` 前缀」判断真人——大量老用户把微信号设成了自定义字符串。
 
 **回答用户时的注意点：**
 
