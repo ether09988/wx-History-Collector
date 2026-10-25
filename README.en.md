@@ -7,6 +7,10 @@ Export your own WeChat private and group chat messages into clean, structured JS
 Runs entirely on your machine: **no network calls, no uploads, no third-party accounts**. Decryption and export both happen locally.
 
 > This is collector #1 of the **Financial-data-Collector** series.
+> **Are you an AI agent?** Read [`AGENT.md`](AGENT.md) — it contains the capability list,
+> task mapping and full parameter reference. You can do everything for the user; they never
+> need to open a terminal.
+>
 > See "Other collectors in the series" at the end of this file.
 
 ---
@@ -284,11 +288,12 @@ python wx_export.py --refresh --days 1 --emit-events --out events.json
 The tool prints `OUTPUT_FILE: <path>`; read that line to locate the file.
 Each record has a stable `msg_id`, so you can process only messages newer than your last run.
 
-**Installation instructions for agents**
+**For AI agents**
 
-[`AGENT-INSTALL.md`](AGENT-INSTALL.md) is written for AI agents: it spells out decision points,
-failure handling, and hard rules (never type the user's password, never fake success).
-Hand that file to your agent and let it do the setup.
+[`AGENT.md`](AGENT.md) is the capability manual: what it can do, which command maps to which
+user request, how to read the output, how to self-diagnose failures, and the hard rules
+(never type the user's password, never fake success, no message sending).
+Hand that file to your agent.
 
 ---
 
@@ -298,7 +303,7 @@ Hand that file to your agent and let it do the setup.
 WeChat-Chat-Collector/
 ├── README.md               Chinese readme
 ├── README.en.md            This file
-├── AGENT-INSTALL.md        Setup playbook for AI agents
+├── AGENT.md                Capability manual for AI agents (setup + usage + troubleshooting)
 ├── WINDOWS-TEST.md         Windows notes and troubleshooting
 ├── install.py              Environment check + key extraction (automatic on Windows)
 ├── setup.sh                macOS only: initialization

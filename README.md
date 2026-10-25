@@ -6,6 +6,9 @@
 
 纯本地运行：**不联网、不上传、不需要登录任何第三方服务**。所有解密和导出都在你自己的机器上完成。
 
+> **你是 AI agent？** 直接读 [`AGENT.md`](AGENT.md) —— 那里有完整的能力清单、
+> 任务映射和参数表，你可以替用户完成全部操作，用户不需要打开终端。
+>
 > 这是 **Financial-data-Collector** 系列的第 1 个采集器。
 > 系列中的其他采集器见文末「系列中的其他采集器」一节。
 
@@ -285,9 +288,10 @@ python wx_export.py --refresh --days 1 --emit-events --out events.json
 工具会打印 `OUTPUT_FILE: <路径>`，你的程序读这一行拿到文件位置即可。
 事件里的 `msg_id` 是稳定的，方便你做增量去重：只处理上次之后新出现的消息。
 
-**给 AI agent 的安装说明**：仓库里的 [`AGENT-INSTALL.md`](AGENT-INSTALL.md) 是专门写给 agent 看的安装剧本，
-里面写清了每一步的判断条件、失败处理和红线（比如不许替用户输密码、不许伪造成功）。
-你可以直接把那个文件丢给你的 agent。
+**给 AI agent 的说明**：仓库里的 [`AGENT.md`](AGENT.md) 是写给 agent 的能力手册——
+能做什么、用户说什么该执行什么命令、输出字段怎么用、出错怎么自愈，
+以及红线（不许替用户输密码、不许伪造成功、不能发消息）。
+把那个文件丢给你的 agent 就够了。
 
 ---
 
@@ -297,7 +301,7 @@ python wx_export.py --refresh --days 1 --emit-events --out events.json
 WeChat-Chat-Collector/
 ├── README.md               本说明（中文）
 ├── README.en.md            英文说明
-├── AGENT-INSTALL.md        给 AI agent 的安装剧本
+├── AGENT.md                给 AI agent 的能力手册（安装+使用+排障）
 ├── WINDOWS-TEST.md         Windows 支持说明与排障
 ├── install.py              环境检查 + 密钥提取（Windows 自动）
 ├── setup.sh                仅 macOS：密钥提取初始化
