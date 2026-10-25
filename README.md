@@ -88,7 +88,8 @@ bash setup-gui.sh          # 图形化初始化：全程系统弹窗，不用碰
 ```
 
 > 两个脚本做同一件事，区别只是收密码的方式：
-> `setup-gui.sh` 用 macOS 系统弹窗，`setup.sh` 在终端里提示。
+> `setup-gui.sh` 用 macOS 系统弹窗（已实测通过，全程不用碰命令行），
+> `setup.sh` 在终端里提示。
 
 > macOS 为什么需要重签微信：macOS 不允许普通程序读其他进程内存（Hardened Runtime），
 > 重签只是去掉这个限制，读完密钥就结束。想恢复官方签名，**重新安装一次微信**即可。

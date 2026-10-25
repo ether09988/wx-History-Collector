@@ -91,7 +91,8 @@ bash setup-gui.sh          # graphical setup: uses system dialogs, no terminal n
 ```
 
 > Both scripts do the same thing; they only differ in how the admin password is collected:
-> `setup-gui.sh` uses native macOS dialogs, `setup.sh` prompts in the terminal.
+> `setup-gui.sh` uses native macOS dialogs (verified on macOS — the user never touches a
+> terminal), `setup.sh` prompts in the terminal.
 
 > Why re-sign WeChat on macOS: macOS forbids one process from reading another process's memory
 > (Hardened Runtime). Re-signing only removes that restriction; it does not modify any behaviour.
