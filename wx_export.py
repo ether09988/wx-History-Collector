@@ -329,12 +329,21 @@ def export_contacts(ddir: str, scope: str = "addressbook"):
         print("[ERROR] 找不到 contact.db，无法导出通讯录", file=sys.stderr)
         return None, None
     try:
-        # biz_info.type 用来区分 公众号(0) / 服务号(1) / 我的企业(2) / 其他(3)
-        rows = con.execute(
-            "select c.username, c.nick_name, c.remark, c.alias, c.local_type, "
-            "       c.delete_flag, b.type "
-            "from contact c left join biz_info b on c.username = b.username"
-        ).fetchall()
+        # biz_info.type 用来区分 公众号(0) / 服务号(1) / 我的企业(2) / 其他(3)。
+        # 这张表是可选依赖：某些微信版本没有它，缺了就降级（公众号不再细分），
+        # 不能因为缺一张可选表就让整个通讯录导出失败。
+        has_biz = bool(_table_cols(con, "biz_info"))
+        if has_biz:
+            rows = con.execute(
+                "select c.username, c.nick_name, c.remark, c.alias, c.local_type, "
+                "       c.delete_flag, b.type "
+                "from contact c left join biz_info b on c.username = b.username"
+            ).fetchall()
+        else:
+            rows = con.execute(
+                "select username, nick_name, remark, alias, local_type, delete_flag, null "
+                "from contact"
+            ).fetchall()
     except Exception as e:
         print(f"[ERROR] 读取通讯录失败: {e}", file=sys.stderr)
         con.close()
@@ -544,6 +553,91 @@ def doctor(ddir=None):
     return 0 if ok_all else 1
 
 
+def _table_cols(con, table: str) -> set:
+    try:
+        return {r[1] for r in con.execute(f"PRAGMA table_info({table})")}
+    except Exception:
+        return set()
+
+
+def check_schema(ddir: str):
+    """检查微信数据库结构和我们依赖的是否一致。
+
+    刻意不判断「微信版本号」——版本号对不上不代表结构变了，反过来也一样。
+    只检查真正读的那几张表、那几个字段还在不在：
+    新版微信如果改了字段名或含义，用户会看到一句人话，而不是一个 SQL 报错。
+
+    返回 (problems, warnings)：problems 阻断导出，warnings 只提示。
+    """
+    problems, warnings = [], []
+
+    # ---- contact.db ----
+    con = open_db(os.path.join(ddir, "contact", "contact.db"))
+    if con is None:
+        problems.append("找不到 contact/contact.db（通讯录与发送人名称都依赖它）")
+    else:
+        missing = {"username", "nick_name", "remark", "local_type"} - _table_cols(con, "contact")
+        if missing:
+            problems.append(f"contact 表缺少字段 {sorted(missing)}")
+        if not _table_cols(con, "biz_info"):
+            warnings.append(
+                "contact.biz_info 表不存在——公众号/服务号/我的企业将无法细分，统一归为 official")
+        con.close()
+
+    # ---- session.db ----
+    con = open_db(os.path.join(ddir, "session", "session.db"))
+    if con is None:
+        problems.append("找不到 session/session.db（会话列表）")
+    else:
+        missing = {"username", "last_timestamp"} - _table_cols(con, "SessionTable")
+        if missing:
+            problems.append(f"session.SessionTable 缺少字段 {sorted(missing)}")
+        con.close()
+
+    # ---- message_*.db（表名是 md5，不固定，取任意一张 Msg_ 表验字段）----
+    mdir = os.path.join(ddir, "message")
+    checked = False
+    if os.path.isdir(mdir):
+        for fn in sorted(os.listdir(mdir)):
+            if not (fn.startswith("message_") and fn.endswith(".db")):
+                continue
+            con = open_db(os.path.join(mdir, fn))
+            if con is None:
+                continue
+            row = con.execute(
+                "select name from sqlite_master where type='table' and name like 'Msg_%' limit 1"
+            ).fetchone()
+            if row:
+                missing = {"local_id", "real_sender_id", "create_time",
+                           "local_type", "message_content"} - _table_cols(con, row[0])
+                if missing:
+                    problems.append(f"消息表 {row[0]} 缺少字段 {sorted(missing)}")
+                checked = True
+            con.close()
+            if checked:
+                break
+    if not checked:
+        warnings.append("未找到任何 Msg_ 消息表——可能是新账号，或这些库还没同步到本机")
+
+    return problems, warnings
+
+
+def report_schema(problems, warnings) -> None:
+    for w in warnings:
+        print(f"[!] 注意: {w}", file=sys.stderr)
+    if not problems:
+        return
+    print("", file=sys.stderr)
+    print("[ERROR] 你的微信数据结构与本工具预期不一致：", file=sys.stderr)
+    for p in problems:
+        print(f"        · {p}", file=sys.stderr)
+    print("", file=sys.stderr)
+    print("        这通常意味着微信换了版本、底层表结构变了。", file=sys.stderr)
+    print("        本工具在微信 4.1.x 上开发，其他版本暂未验证。", file=sys.stderr)
+    print("        请到 GitHub issues 反馈，附上上面这几行即可（不含任何聊天内容）：", file=sys.stderr)
+    print("        https://github.com/ether09988/wx-History-Collector/issues", file=sys.stderr)
+
+
 def base_type(local_type: int) -> int:
     """微信 4.x 的 local_type 是 64 位：低 32 位是消息类型，高位是子类型。"""
     return int(local_type) & 0xFFFFFFFF
@@ -625,6 +719,10 @@ def main():
             print(f"[ERROR] 找不到解密后的 contact 目录: {ddir}/contact", file=sys.stderr)
             print("        首次使用请加上 --refresh 参数（会先自动解密）", file=sys.stderr)
             sys.exit(2)
+        problems, warnings = check_schema(ddir)
+        report_schema(problems, warnings)
+        if problems:
+            sys.exit(5)
         out_path = args.out or os.path.join(tempfile.gettempdir(), "wechat_contacts.json")
         events, stats = export_contacts(ddir, args.contacts_scope)
         if events is None:
@@ -646,6 +744,11 @@ def main():
         sys.exit(2)
 
     cutoff = args.since if args.since else int(time.time()) - args.days * 86400
+
+    problems, warnings = check_schema(ddir)
+    report_schema(problems, warnings)
+    if problems:
+        sys.exit(5)
 
     names = load_names(ddir)
     sessions = load_sessions(ddir)
