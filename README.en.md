@@ -11,7 +11,7 @@ Runs entirely on your machine: **no network calls, no uploads, no third-party ac
 > task mapping and full parameter reference. You can do everything for the user; they never
 > need to open a terminal.
 >
-> See "Other collectors in the series" at the end of this file.
+> Collector #1 of the [**Financial-data-Collectors**](https://github.com/ether09988/Financial-data-Collectors) series.
 
 ---
 
@@ -86,8 +86,12 @@ python install.py --auto   # extract keys automatically (WeChat must stay logged
 
 ```bash
 python3 install.py         # environment check
-bash setup.sh              # extract keys (asks for your admin password once)
+bash setup-gui.sh          # graphical setup: uses system dialogs, no terminal needed
+# or: bash setup.sh        # terminal version (equivalent)
 ```
+
+> Both scripts do the same thing; they only differ in how the admin password is collected:
+> `setup-gui.sh` uses native macOS dialogs, `setup.sh` prompts in the terminal.
 
 > Why re-sign WeChat on macOS: macOS forbids one process from reading another process's memory
 > (Hardened Runtime). Re-signing only removes that restriction; it does not modify any behaviour.
@@ -391,7 +395,7 @@ detection behaviour cannot be guaranteed. Evaluate the risk yourself.
 | Tonghuashun watchlist / positions | 🚧 Planned |
 | Broker trade records | 🚧 Planned |
 
-> The series index repo is being set up; this table is the authoritative list for now.
+See [**Financial-data-Collectors**](https://github.com/ether09988/Financial-data-Collectors) for the full index.
 
 ---
 

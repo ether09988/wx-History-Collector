@@ -46,8 +46,11 @@ python3 install.py          # Windows: python install.py
 
 | 平台 | 你能否自己做 | 怎么做 |
 |---|---|---|
-| **Windows** | ✅ 你可以直接跑，不需要管理员权限 | `python install.py --auto` |
-| **macOS** | ❌ **必须用户亲手做** | 让用户在「终端」里执行 `bash setup.sh`，会要求输入 Mac 登录密码 |
+| **Windows** | ✅ 完全自动，不需要管理员权限 | `python install.py --auto` |
+| **macOS** | ⚠️ 能代跑，但需要用户输一次密码 | **优先** `bash setup-gui.sh` —— 全程用系统弹窗收密码，用户不用碰命令行；失败再回退 `bash setup.sh`（终端） |
+
+**macOS 优先用 `setup-gui.sh`**：它会依次弹出系统对话框（关微信 → 要密码 → 开微信 → 再要密码 → 完成），
+用户只需要点「好」和输密码。你不需要把终端界面暴露给用户。
 
 **macOS 上你必须先跟用户讲清楚三件事**（这是风险告知）：
 
@@ -58,6 +61,9 @@ python3 install.py          # Windows: python install.py
 另外主动提醒：想恢复微信官方签名，重新安装一次微信即可。
 
 **不要做的事**：不要让用户关闭 SIP（`csrutil disable`）。本项目不要求这个。
+
+> ⚠️ `setup-gui.sh` 的密码弹窗流程尚未在真机上完整验证。如果它中途失败，
+> 直接回退到 `bash setup.sh`（让用户开终端执行），不要在弹窗环节反复重试。
 
 ### 设置完成后自检
 

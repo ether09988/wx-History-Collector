@@ -9,8 +9,8 @@
 > **你是 AI agent？** 直接读 [`AGENT.md`](AGENT.md) —— 那里有完整的能力清单、
 > 任务映射和参数表，你可以替用户完成全部操作，用户不需要打开终端。
 >
-> 这是 **Financial-data-Collector** 系列的第 1 个采集器。
-> 系列中的其他采集器见文末「系列中的其他采集器」一节。
+> 这是 [**Financial-data-Collectors**](https://github.com/ether09988/Financial-data-Collectors) 系列的第 1 个采集器。
+> 系列索引里有全部采集器的清单。
 
 ---
 
@@ -83,8 +83,12 @@ python install.py --auto   # 自动提取密钥（微信保持登录状态）
 
 ```bash
 python3 install.py         # 先看环境检查
-bash setup.sh              # 提取密钥（要输入一次管理员密码）
+bash setup-gui.sh          # 图形化初始化：全程系统弹窗，不用碰命令行
+# 或用 bash setup.sh        # 终端版（等价）
 ```
+
+> 两个脚本做同一件事，区别只是收密码的方式：
+> `setup-gui.sh` 用 macOS 系统弹窗，`setup.sh` 在终端里提示。
 
 > macOS 为什么需要重签微信：macOS 不允许普通程序读其他进程内存（Hardened Runtime），
 > 重签只是去掉这个限制，读完密钥就结束。想恢复官方签名，**重新安装一次微信**即可。
@@ -389,7 +393,7 @@ A：工具只读取本地数据库和进程内存，不修改微信任何行为�
 | 同花顺自选 / 持仓 | 🚧 规划中 |
 | 券商交易记录 | 🚧 规划中 |
 
-> 系列索引仓库正在整理中，当前以本表为准。
+完整列表与说明见 [**Financial-data-Collectors**](https://github.com/ether09988/Financial-data-Collectors)。
 
 ---
 
