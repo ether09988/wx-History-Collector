@@ -206,6 +206,55 @@ def classify(username: str):
     return "private"
 
 
+LOCK_FILE = os.path.join(tempfile.gettempdir(), "wechat_export.lock")
+LOCK_STALE_SECONDS = 1800     # 超过 30 分钟视为残留锁
+LOCK_WAIT_SECONDS = 300       # 等待其他采集结束，最多 5 分钟
+
+
+def acquire_lock(wait_seconds: int = LOCK_WAIT_SECONDS):
+    """采集互斥锁。
+
+    同一台机器上可能同时有「手动触发」和「定时任务」两路采集在跑，
+    它们共用同一个解密目录和输出文件，会互相删掉对方的中间产物。
+    这里用 O_EXCL 建锁文件做互斥：后来的等待，等到就继续，等不到就报错退出。
+    """
+    deadline = time.time() + wait_seconds
+    waited = False
+    while True:
+        try:
+            fd = os.open(LOCK_FILE, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, str(os.getpid()).encode())
+            os.close(fd)
+            if waited:
+                print("[lock] 上一次采集已结束，本次继续", file=sys.stderr)
+            return True
+        except FileExistsError:
+            # 残留锁（进程崩溃/被 kill）自动清理
+            try:
+                age = time.time() - os.path.getmtime(LOCK_FILE)
+                if age > LOCK_STALE_SECONDS:
+                    print(f"[lock] 清理残留锁（{int(age)}s 未释放）", file=sys.stderr)
+                    os.unlink(LOCK_FILE)
+                    continue
+            except OSError:
+                pass
+            if time.time() > deadline:
+                print("[lock] 另一路采集仍在运行，等待超时。请稍后重试；"
+                      "若是残留锁，可删除 " + LOCK_FILE, file=sys.stderr)
+                return False
+            if not waited:
+                print("[lock] 检测到另一路采集正在运行，排队等待…", file=sys.stderr)
+                waited = True
+            time.sleep(3)
+
+
+def release_lock():
+    try:
+        os.unlink(LOCK_FILE)
+    except OSError:
+        pass
+
+
 def refresh_decrypted(out_dir: str) -> bool:
     """先刷新解密库到临时目录（无需 sudo，口令已缓存在用户目录）。"""
     import shutil
@@ -424,6 +473,11 @@ def main():
     args = ap.parse_args()
 
     if args.refresh:
+        # 互斥：防止「手动触发」与「定时任务」同时跑，互相删掉对方的中间产物
+        if not acquire_lock():
+            sys.exit(4)
+        import atexit
+        atexit.register(release_lock)
         if not refresh_decrypted(TMP_DECRYPTED):
             print("[ERROR] 解密库刷新失败", file=sys.stderr)
             sys.exit(3)
@@ -469,7 +523,8 @@ def main():
     if not args.stat:
         if not args.out:
             if args.emit_events:
-                args.out = os.path.join(tempfile.gettempdir(), "wechat_messages.json")
+                args.out = os.path.join(
+                    tempfile.gettempdir(), f"wechat_messages_{os.getpid()}.json")
             else:
                 print("[ERROR] 需要 --out 或 --stat", file=sys.stderr)
                 sys.exit(2)
