@@ -19,3 +19,14 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+Note on third-party components:
+
+This project's own code is licensed under the MIT License above,
+Copyright (c) 2026 ether09988.
+
+Individual collectors may include third-party components distributed under
+their own licenses, with copyright held by their original authors.
+See NOTICE and the LICENSE file inside each collector for details.

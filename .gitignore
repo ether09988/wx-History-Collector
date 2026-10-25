@@ -1,0 +1,25 @@
+# ---- 本机私有文件：绝对不要提交 ----
+# 数据库密钥（等于你全部聊天记录的钥匙）
+wcdb-key-tool/all_keys.json
+wcdb-key-tool/config.json
+wcdb-key-tool/decrypted/
+
+# 登录口令缓存（在用户主目录，此处再挡一次）
+*passphrase*.json
+
+# ---- 导出产物 ----
+out/
+decrypted/
+messages.json
+events.json
+*.jsonl
+
+# ---- 运行时杂项 ----
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
