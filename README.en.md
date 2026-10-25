@@ -25,31 +25,6 @@ This is not one monolithic script — it's three parts with clearly separated jo
 | `wcdb-key-tool/` (2907 lines) | **Extract the key from WeChat's memory** and **decrypt the encrypted DBs into plain SQLite** | Third-party (MIT, see `NOTICE`) |
 | `install.py` + `setup*.sh` (561 lines) | First-time setup: environment check, quit WeChat, re-sign, extract keys | Original work |
 
-### Why wcdb-key-tool is required
-
-WeChat's chat history is not a normal database — it's **encrypted**. Opening it directly gives you:
-
-```
-First 16 bytes:      a5ba 84e7 ec8a eda2 d560 17c0 7ed7   <- detected as "data"
-As a normal DB:      Error: file is not a database
-```
-
-After decryption it's ordinary SQLite:
-
-```
-First 16 bytes:      5351 4c69 7465 2066 6f72 6d61 7420   <- "SQLite format 3."
-As a normal DB:      3459 conversations                      <- queryable
-```
-
-`wcdb-key-tool` does exactly that "turn an unopenable file into a queryable one" job. Two steps:
-
-1. **`extract` (once)** — make WeChat re-login, use `lldb` to break on
-   `CCKeyDerivationPBKDF` inside WeChat's process, capture the derivation parameters,
-   run 256,000 PBKDF2 rounds to derive the master passphrase, then verify the salt of
-   each of the 31 databases
-2. **`decrypt` (every export)** — use the cached passphrase to decrypt all 31 databases
-   into plain SQLite
-
 ### What wx_export.py does on top
 
 The decrypted databases are "queryable but unreadable":
