@@ -28,9 +28,21 @@
 | Windows 10/11 | ✅ 已实测 | **不需要管理员权限、不需要改微信**，一条命令自动提取 |
 | Linux | ❌ 未适配 | 解密组件理论支持，本项目未做适配 |
 
-> **不需要关闭 SIP（系统完整性保护）。** 本项目全程不碰 SIP，已在 SIP 正常开启的机器上实测通过。
-> 真正起作用的是「给微信重签为 ad-hoc 签名」，用来去掉它的 Hardened Runtime 标志。
-> 网上很多教程建议关 SIP，那是另一条更粗暴的路，没必要。
+> **关于 SIP（系统完整性保护）**
+>
+> 主流做法**不需要关闭 SIP**：起作用的是「把微信重签为 ad-hoc 签名」，去掉它的 Hardened Runtime。
+> 本项目从未调用 `csrutil`，也不会要求你关 SIP。
+>
+> 但有一个真实情况需要说明：**首次提取密钥**时才需要读微信进程内存，之后口令会缓存在
+> `~/.wcdb-key-tool/wechat-passphrase.json`，日常解密完全不再碰内存。
+> 所以「第一次成功后，后面怎么都行」——这也是为什么有人觉得「必须开一次 SIP」。
+> 如果你的首次提取失败，请按下面的排查顺序来，**把 SIP 放在最后一步**：
+>
+> 1. 确认微信已登录、没有退出
+> 2. 确认微信签名已是 `adhoc`（`python3 wx_export.py --doctor` 会直接告诉你）
+> 3. 把「终端」加入 完全磁盘访问，完全退出终端后重开
+> 4. 重跑 `setup.sh`
+> 5. 仍然失败再考虑 SIP（`csrutil disable`，需要进恢复模式，且会降低整机安全性）
 
 ---
 
@@ -115,6 +127,40 @@ OUTPUT_FILE: /绝对路径/messages.json
 > 单个会话是否触到 `--max-per-chat` 上限、以及是否包含公众号。
 > 判断成功的标准只有一个：**打印出了 `OUTPUT_FILE` 那一行，且条数大于 0**。
 > 数字大小不代表成功或失败。
+
+### 出问题先跑自检
+
+```bash
+python3 wx_export.py --doctor
+```
+
+它会逐项检查并告诉你该修哪一项：
+
+```
+ ✓ 微信进程: 运行中
+ ✓ 微信签名状态: 已重签为 ad-hoc（可读进程内存）
+ ℹ SIP: 已开启（正常状态）
+ ✓ 微信数据库: /Users/xxx/.../db_storage
+ ✓ 数据库密钥: 已提取
+ ✓ 解密库: /var/folders/.../wechat_export_cache
+```
+
+失败时会给出具体的修复命令和排查顺序，不用猜。
+
+### 私聊和群聊分开导出
+
+```bash
+python3 wx_export.py --refresh --days 7 --split --out messages.json
+```
+
+会生成两个文件，并分别打印路径：
+
+```
+OUTPUT_FILE: /绝对路径/messages_private.json     ← 私聊
+OUTPUT_FILE: /绝对路径/messages_group.json       ← 群聊
+```
+
+如果你要喂给 agent，分开调用更省 token——只处理关心的那一类。
 
 ### 第四步（可选）：导出通讯录
 
@@ -206,6 +252,9 @@ python wx_export.py [选项]
   --stat               只统计不写文件
 
   # 通讯录
+  --split              私聊与群聊分别写成两个文件（<out>_private.json / <out>_group.json）
+  --doctor             自检：检查微信签名/密钥/解密库/进程并给出修复建议
+
   --contacts           导出通讯录（好友/群/公众号），而不是聊天消息
   --contacts-scope     addressbook（默认，与微信「通讯录管理」一致）
                        或 all（含未保存的群、历史公众号、非好友缓存、系统号）

@@ -122,6 +122,29 @@ exported 1287 messages across 73 chats
 > There is exactly one success criterion: **the `OUTPUT_FILE` line appears and the count is > 0.**
 > A bigger or smaller number says nothing about success.
 
+### Troubleshoot first
+
+```bash
+python3 wx_export.py --doctor
+```
+
+It checks every prerequisite and tells you exactly which one to fix.
+
+### Export private and group chats separately
+
+```bash
+python3 wx_export.py --refresh --days 7 --split --out messages.json
+```
+
+Produces two files and prints both paths:
+
+```
+OUTPUT_FILE: /abs/path/messages_private.json
+OUTPUT_FILE: /abs/path/messages_group.json
+```
+
+Handy when feeding an agent: you can load only the category you need.
+
 ### 4 (optional): export contacts
 
 Want just the address book, not the chat history:
@@ -213,6 +236,9 @@ python wx_export.py [options]
   --include-official   Include official accounts and system notifications
   --decrypted DIR      Use a specific decrypted database directory
   --stat               Count only, write nothing
+
+  --split              Write private and group chats to two separate files
+  --doctor             Self-check: WeChat signature / keys / cache / process, with fixes
 
   # contacts
   --contacts           Export the contact list instead of messages

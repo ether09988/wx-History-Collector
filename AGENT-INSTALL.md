@@ -177,6 +177,8 @@ python "<仓库目录>\wx_export.py" --contacts --refresh --out contacts.json
 
 | 参数 | 作用 |
 |---|---|
+| `--doctor` | **出问题先跑这个**：逐项自检并输出修复建议 |
+| `--split` | 私聊与群聊分别写入两个文件，会打印两行 `OUTPUT_FILE:` |
 | `--contacts` | 导出通讯录而不是聊天消息 |
 | `--contacts-scope addressbook` | 默认。与微信「通讯录管理」页面数量一致 |
 | `--contacts-scope all` | 全部：再加未保存的群、历史公众号、非好友缓存、系统号 |
@@ -212,6 +214,25 @@ python "<仓库目录>\wx_export.py" --contacts --refresh --out contacts.json
 3. 如果用户问「能不能用这个给他发消息」——明确说**不能**，这是设计上的边界，
    本工具只读本地数据，不联网、不调用微信接口。
 4. 提醒用户这份文件等同于完整社交关系图谱，**不要上传、不要提交、不要分享**。
+
+---
+
+## 第 4.8 步：私聊与群聊分开导出
+
+如果用户说「私聊和群聊分开给我」「只要群里的」这类需求，加 `--split`：
+
+```bash
+python3 "<仓库目录>/wx_export.py" --refresh --days 7 --split --out messages.json
+```
+
+会输出两个文件并打印两行路径：
+
+```
+OUTPUT_FILE: /路径/messages_private.json    ← 私聊
+OUTPUT_FILE: /路径/messages_group.json      ← 群聊
+```
+
+两个文件里每条的 `chat_type` 分别是 `private` / `group`，可以放心分别读取。
 
 ---
 

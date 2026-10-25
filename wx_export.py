@@ -60,6 +60,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DECRYPTED = os.path.join(HERE, "out", "decrypted")
 WXTOOL = os.path.join(HERE, "wcdb-key-tool")
 IS_WIN = platform.system() == "Windows"
+IS_MAC = platform.system() == "Darwin"
 
 MAC_BASE = os.path.expanduser(
     "~/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files"
@@ -117,6 +118,7 @@ def find_db_dir():
     cands.sort(reverse=True)
     return cands[0][1]
 TMP_DECRYPTED = os.path.join(tempfile.gettempdir(), "wechat_export_cache")
+KEYS_PATH = os.path.join(WXTOOL, "all_keys.json")
 CST = timezone(timedelta(hours=8))
 
 TYPE_NAMES = {
@@ -415,6 +417,133 @@ def classify_contact(username: str, local_type: int, biz_type: int = None) -> st
     return "other"
 
 
+def _wechat_running() -> bool:
+    try:
+        if IS_WIN:
+            for exe in ("Weixin.exe", "WeChat.exe"):
+                r = subprocess.run(["tasklist", "/FI", f"IMAGENAME eq {exe}",
+                                    "/FO", "CSV", "/NH"],
+                                   capture_output=True, text=True, timeout=10)
+                if exe.lower() in (r.stdout or "").lower():
+                    return True
+            return False
+        r = subprocess.run(["pgrep", "-f", "MacOS/WeChat"], capture_output=True, text=True)
+        return bool(r.stdout.strip())
+    except Exception:
+        return False
+
+
+def _run(cmd, timeout=15):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    except Exception:
+        return None
+
+
+def wechat_signature_state():
+    """返回 (状态, 说明)。状态：adhoc / runtime / missing / unknown"""
+    if not IS_WIN and not os.path.exists("/Applications/WeChat.app"):
+        return "missing", "未找到 /Applications/WeChat.app"
+    if IS_WIN:
+        return "n/a", "Windows 不使用代码签名方案"
+    r = _run(["codesign", "-dv", "--verbose=2", "/Applications/WeChat.app"])
+    out = ((r.stderr or "") + (r.stdout or "")) if r else ""
+    if "flags=0x2(adhoc)" in out:
+        return "adhoc", "已重签为 ad-hoc（可读进程内存）"
+    if "runtime" in out:
+        return "runtime", "仍是官方签名（带 Hardened Runtime，需要重签）"
+    return "unknown", "无法判断签名状态"
+
+
+def sip_state():
+    if IS_WIN:
+        return "n/a", "Windows 无 SIP"
+    r = _run(["csrutil", "status"])
+    out = ((r.stdout or "") + (r.stderr or "")).strip() if r else ""
+    if "enabled" in out and "disabled" not in out:
+        return "enabled", "SIP 已开启（正常状态）"
+    if "disabled" in out:
+        return "disabled", "SIP 已关闭（不影响本工具，但会降低系统安全性）"
+    return "unknown", out or "无法读取 SIP 状态"
+
+
+def doctor(ddir=None):
+    """自检：逐项检查前置条件，并在失败时给出可执行的修复建议。"""
+    ok_all = True
+    print("=" * 56)
+    print(" 微信聊天记录导出 · 自检")
+    print("=" * 56)
+
+    def line(passed, name, detail, fix=""):
+        nonlocal ok_all
+        mark = "✓" if passed else "✗"
+        print(f" {mark} {name}: {detail}")
+        if not passed:
+            ok_all = False
+            if fix:
+                for ln in fix.strip().split("\n"):
+                    print(f"     → {ln}")
+
+    # 1. 平台
+    line(IS_MAC or IS_WIN, "操作系统", platform.system(),
+         "目前只支持 macOS 和 Windows" if not (IS_MAC or IS_WIN) else "")
+
+    # 2. 微信是否在运行
+    running = _wechat_running()
+    line(running, "微信进程", "运行中" if running else "未检测到",
+         "打开微信并登录后重试（取密钥需要读它的进程内存）")
+
+    # 3. 微信签名（仅 macOS，这是最常见的失败原因）
+    if IS_MAC:
+        state, desc = wechat_signature_state()
+        line(state == "adhoc", "微信签名状态", desc,
+             "微信升级会还原官方签名，导致无法读取密钥。重新执行一次：\n"
+             "  bash setup.sh\n"
+             "（如果一直报 Operation not permitted，先给「终端」授予\n"
+             "  系统设置 → 隐私与安全性 → 完全磁盘访问 权限，再完全退出终端重开）")
+
+    # 4. SIP（信息性，不作为失败判据）
+    sip, sip_desc = sip_state()
+    print(f" ℹ SIP: {sip_desc}")
+    if sip == "enabled":
+        print("     （本工具不需要关闭 SIP；若首次取密钥失败，见文末排查顺序）")
+
+    # 5. 数据库目录
+    db = find_db_dir()
+    line(bool(db), "微信数据库", db or "未找到",
+         "先登录微信并收发几条消息，再重试")
+
+    # 6. 密钥文件
+    keys_ok = os.path.exists(KEYS_PATH) and os.path.getsize(KEYS_PATH) > 10
+    line(keys_ok, "数据库密钥", "已提取" if keys_ok else "未提取",
+         "首次使用需要提取一次密钥：\n"
+         "  macOS  ：bash setup.sh\n"
+         "  Windows：python install.py --auto")
+
+    # 7. 解密库
+    if ddir is None:
+        ddir = TMP_DECRYPTED if os.path.isdir(TMP_DECRYPTED) else None
+    dec_ok = bool(ddir and os.path.isdir(os.path.join(ddir, "message")))
+    line(dec_ok, "解密库", ddir or "尚未生成",
+         "加上 --refresh 参数会自动解密：\n"
+         "  python wx_export.py --refresh --days 7 --out messages.json")
+
+    print("-" * 56)
+    if ok_all:
+        print(" ✅ 全部就绪，可以导出")
+    else:
+        print(" ⚠️ 有项目未通过，按上面的 → 提示处理")
+        print()
+        print(" 【仍然失败时的排查顺序】")
+        print("   1. 确认微信已登录且没有退出（取密钥要读进程内存）")
+        print("   2. macOS：确认微信签名已是 adhoc（见上）")
+        print("   3. macOS：把「终端」加入 完全磁盘访问，并完全退出终端重开")
+        print("   4. 重跑一次 setup.sh / install.py --auto")
+        print("   5. 若仍失败，提 issue 并附上本文输出（不含聊天内容）")
+    print("=" * 56)
+    return 0 if ok_all else 1
+
+
 def base_type(local_type: int) -> int:
     """微信 4.x 的 local_type 是 64 位：低 32 位是消息类型，高位是子类型。"""
     return int(local_type) & 0xFFFFFFFF
@@ -463,6 +592,10 @@ def main():
     ap.add_argument("--decrypted", default=DECRYPTED, help="解密库目录")
     ap.add_argument("--refresh", action="store_true",
                     help="先自动刷新解密库（输出到系统临时目录，无需 sudo）")
+    ap.add_argument("--doctor", action="store_true",
+                    help="自检：检查微信签名/密钥/解密库/进程，并给出修复建议")
+    ap.add_argument("--split", action="store_true",
+                    help="把私聊与群聊分别写入两个文件（<out>_private.json / <out>_group.json）")
     ap.add_argument("--emit-events", action="store_true",
                     help="输出 [{id,data}] 事件数组，并在结束时打印 OUTPUT_FILE 路径")
     ap.add_argument("--since", type=int, default=0, help="起始 unix 时间戳（覆盖 --days）")
@@ -471,6 +604,9 @@ def main():
     ap.add_argument("--contacts-scope", default="addressbook", choices=["addressbook", "all"],
                     help="通讯录范围：addressbook=好友+群+企业微信（默认）；all=全部（含公众号/非好友/系统号）")
     args = ap.parse_args()
+
+    if args.doctor:
+        sys.exit(doctor(None if args.decrypted == DECRYPTED else args.decrypted))
 
     if args.refresh:
         # 互斥：防止「手动触发」与「定时任务」同时跑，互相删掉对方的中间产物
@@ -522,13 +658,13 @@ def main():
     events = []
     if not args.stat:
         if not args.out:
-            if args.emit_events:
+            if args.emit_events or args.split:
                 args.out = os.path.join(
                     tempfile.gettempdir(), f"wechat_messages_{os.getpid()}.json")
             else:
                 print("[ERROR] 需要 --out 或 --stat", file=sys.stderr)
                 sys.exit(2)
-        if not args.emit_events:
+        if not (args.emit_events or args.split):
             out_fh = open(args.out, "w", encoding="utf-8")
 
     for username, last_ts, summary in sessions:
@@ -597,17 +733,33 @@ def main():
             }
             total += 1
             n += 1
+            eid = "wxmsg-" + hashlib.md5(
+                f"{username}:{local_id}".encode()).hexdigest()[:20]
+            item = {"id": eid, "data": rec}
             if out_fh:
                 out_fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
-            elif args.emit_events:
-                eid = "wxmsg-" + hashlib.md5(
-                    f"{username}:{local_id}".encode()).hexdigest()[:20]
-                events.append({"id": eid, "data": rec})
+            else:
+                events.append(item)
         per_chat.append((chat_name, n))
 
     if out_fh:
         out_fh.close()
-    if args.emit_events:
+    if args.split:
+        # 私聊与群聊分开写两个文件，方便 agent 分别调用
+        base, ext = os.path.splitext(args.out)
+        ext = ext or ".json"
+        buckets = {"private": [], "group": []}
+        for e in events:
+            ct = e["data"].get("chat_type")
+            buckets["group" if ct == "group" else "private"].append(e)
+        for tag in ("private", "group"):
+            path = f"{base}_{tag}{ext}"
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(buckets[tag], f, ensure_ascii=False)
+            print(f"OUTPUT_FILE: {os.path.abspath(path)}")
+        print(f"导出 私聊 {len(buckets['private'])} 条 / 群聊 {len(buckets['group'])} 条，"
+              f"涉及 {chats_hit} 个会话", file=sys.stderr)
+    elif args.emit_events:
         with open(args.out, "w", encoding="utf-8") as f:
             json.dump(events, f, ensure_ascii=False)
         print(f"OUTPUT_FILE: {os.path.abspath(args.out)}")
