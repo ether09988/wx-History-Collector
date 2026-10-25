@@ -25,12 +25,17 @@ if ! osascript -e 'return 1' >/dev/null 2>&1; then
 fi
 
 echo "【1/4】关闭微信"
-osascript -e 'quit app "WeChat"' >/dev/null 2>&1
-sleep 2
+# 用 pkill 直接结束进程，不用 osascript 控制微信。
+# 原因：osascript 的 "quit app" 需要 macOS「自动化」隐私授权，
+# 未授权时会失败并返回 -128（用户已取消），而 pkill 不需要任何授权。
 pkill -f "MacOS/WeChat" >/dev/null 2>&1
-sleep 2
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  pgrep -f "MacOS/WeChat" >/dev/null 2>&1 || break
+  sleep 1
+done
 if pgrep -f "MacOS/WeChat" >/dev/null 2>&1; then
-  say "微信没能自动退出，请手动 ⌘Q 退出后重新运行。"
+  say "微信没能自动退出，请手动 ⌘Q 退出微信后，重新运行本脚本。"
+  echo "[ERROR] 微信仍在运行"
   exit 1
 fi
 echo "  ✓ 已退出"
