@@ -21,7 +21,7 @@ This is not one monolithic script — it's three parts with clearly separated jo
 
 | Component | Responsibility | Origin |
 |---|---|---|
-| `wx_export.py` (919 lines) | **Translate decrypted databases into readable chats / contacts** | Original work |
+| `wx_export.py` (927 lines) | **Translate decrypted databases into readable chats / contacts** | Original work |
 | `wcdb-key-tool/` (2907 lines) | **Extract the key from WeChat's memory** and **decrypt the encrypted DBs into plain SQLite** | Third-party (MIT, see `NOTICE`) |
 | `install.py` + `setup*.sh` (561 lines) | First-time setup: environment check, quit WeChat, re-sign, extract keys | Original work |
 
