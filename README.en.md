@@ -27,6 +27,11 @@ Runs entirely on your machine: **no network calls, no uploads, no third-party ac
 | Windows 10/11 | ✅ Tested | **No admin rights, no WeChat modification** — one command extracts keys |
 | Linux | ❌ Not adapted | The decryption component supports it; this project does not |
 
+> **You do not need to disable SIP (System Integrity Protection).** This project never touches SIP,
+> and has been verified on a machine with SIP fully enabled. What actually matters is
+> **re-signing WeChat to an ad-hoc signature**, which strips its Hardened Runtime flag.
+> Many tutorials tell you to run `csrutil disable` — that is a heavier, unnecessary alternative.
+
 ---
 
 ## Quick start
@@ -72,6 +77,26 @@ bash setup.sh              # extract keys (asks for your admin password once)
 >
 > On WeChat 4.1+, you also need to log out and log back in once — the new version only
 > derives the key at login time.
+
+**macOS permission requirements (all three must hold, otherwise it fails)**
+
+1. **Run `setup.sh` in the built-in Terminal app on the machine itself.**
+   Do not run it over SSH — remote sessions cannot obtain the macOS TCC authorization for
+   debugging, and `task_for_pid` will be rejected.
+2. **Terminal needs Full Disk Access**, otherwise re-signing fails with `Operation not permitted`.
+   Go to System Settings → Privacy & Security → Full Disk Access → add Terminal, then
+   **fully quit and reopen Terminal**.
+3. **Verify the re-sign actually took effect.** After running `setup.sh`:
+
+   ```bash
+   codesign -dv --verbose=2 /Applications/WeChat.app 2>&1 | grep flags
+   ```
+
+   It should print `flags=0x2(adhoc)`. If it still shows `flags=0x10000(runtime)`, the re-sign
+   did not apply — check requirement #2.
+
+> **SIP stays enabled.** If some tutorial tells you to `csrutil disable`, that is a different
+> approach and this project does not need it.
 
 ### 3. Export
 
@@ -222,9 +247,27 @@ No. There is no networking code at all.
 You may need to re-run the initialization. On macOS, updating WeChat restores its original
 signature — re-run `setup.sh`.
 
+**Do I need to disable SIP?**
+**No.** This project never touches SIP. Whether WeChat's memory can be read depends on whether
+the app carries Hardened Runtime — not on SIP. Once re-signed, exporting works with SIP fully
+enabled; this was verified on a machine with SIP on.
+
 **Why does macOS need to re-sign WeChat?**
-macOS blocks one process from reading another's memory. Re-signing removes Hardened Runtime,
-which is the lighter of the two options (disabling SIP is more invasive and not recommended).
+macOS blocks one process from reading another's memory (Hardened Runtime). Re-signing is the
+lowest-cost way to remove that flag. To restore the official signature, reinstall WeChat.
+
+**`codesign` fails with `Operation not permitted` — what now?**
+Terminal lacks Full Disk Access, so it cannot modify app bundles under `/Applications`.
+Add Terminal under System Settings → Privacy & Security → Full Disk Access, fully quit and
+reopen Terminal, then re-run `setup.sh`.
+
+**Can I run `setup.sh` over SSH?**
+**No.** macOS ties debugging authorization (TCC) to a local GUI terminal. An SSH session's parent
+is sshd, which cannot obtain it, so `task_for_pid` always fails. Run it in Terminal on the machine.
+
+**How do I confirm the re-sign worked?**
+`codesign -dv --verbose=2 /Applications/WeChat.app 2>&1 | grep flags` should show
+`flags=0x2(adhoc)`; `flags=0x10000(runtime)` means it did not apply.
 
 **Why are images empty?**
 WeChat stores images as encrypted `.dat` files. This tool records `[image]` placeholders only.
