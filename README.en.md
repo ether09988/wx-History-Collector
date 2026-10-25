@@ -7,7 +7,7 @@ Export your own WeChat private and group chat messages into clean, structured JS
 Runs entirely on your machine: **no network calls, no uploads, no third-party accounts**. Decryption and export both happen locally.
 
 > This is collector #1 of the **Financial-data-Collector** series.
-> See the [full series](https://github.com/ether09988/Financial-data-Collectors) for more (QQ chat history, Tonghuashun watchlist/positions, and others).
+> See "Other collectors in the series" at the end of this file.
 
 ---
 
@@ -386,7 +386,7 @@ detection behaviour cannot be guaranteed. Evaluate the risk yourself.
 | Tonghuashun watchlist / positions | 🚧 Planned |
 | Broker trade records | 🚧 Planned |
 
-See [Financial-data-Collectors](https://github.com/ether09988/Financial-data-Collectors) for the full index.
+> The series index repo is being set up; this table is the authoritative list for now.
 
 ---
 

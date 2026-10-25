@@ -7,7 +7,7 @@
 纯本地运行：**不联网、不上传、不需要登录任何第三方服务**。所有解密和导出都在你自己的机器上完成。
 
 > 这是 **Financial-data-Collector** 系列的第 1 个采集器。
-> 其他采集器（QQ 聊天记录、同花顺自选/持仓等）见 [系列列表](https://github.com/ether09988/Financial-data-Collectors)。
+> 系列中的其他采集器见文末「系列中的其他采集器」一节。
 
 ---
 
@@ -385,7 +385,7 @@ A：工具只读取本地数据库和进程内存，不修改微信任何行为�
 | 同花顺自选 / 持仓 | 🚧 规划中 |
 | 券商交易记录 | 🚧 规划中 |
 
-完整列表见 [Financial-data-Collectors](https://github.com/ether09988/Financial-data-Collectors)。
+> 系列索引仓库正在整理中，当前以本表为准。
 
 ---
 
