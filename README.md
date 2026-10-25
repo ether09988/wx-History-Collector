@@ -103,12 +103,17 @@ python3 wx_export.py --refresh --days 7 --out messages.json
 python wx_export.py --refresh --days 7 --out messages.json
 ```
 
-成功会打印：
+成功会打印类似这样的两行：
 
 ```
 OUTPUT_FILE: /绝对路径/messages.json
-导出 3574 条消息，涉及 135 个会话
+导出 1287 条消息，涉及 73 个会话
 ```
+
+> **上面的条数和会话数是示例，每个人都不一样。** 它取决于你的聊天量、`--days` 取多少天、
+> 单个会话是否触到 `--max-per-chat` 上限、以及是否包含公众号。
+> 判断成功的标准只有一个：**打印出了 `OUTPUT_FILE` 那一行，且条数大于 0**。
+> 数字大小不代表成功或失败。
 
 ---
 

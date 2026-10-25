@@ -108,12 +108,18 @@ python3 wx_export.py --refresh --days 7 --out messages.json
 python wx_export.py --refresh --days 7 --out messages.json
 ```
 
-On success it prints:
+On success it prints two lines like this:
 
 ```
 OUTPUT_FILE: /absolute/path/messages.json
-exported 3574 messages across 135 chats
+exported 1287 messages across 73 chats
 ```
+
+> **The message and chat counts above are examples — yours will differ.** They depend on how much
+> you chat, the `--days` window, whether any chat hits the `--max-per-chat` cap, and whether you
+> included official accounts.
+> There is exactly one success criterion: **the `OUTPUT_FILE` line appears and the count is > 0.**
+> A bigger or smaller number says nothing about success.
 
 ---
 
