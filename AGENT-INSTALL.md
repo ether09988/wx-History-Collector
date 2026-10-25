@@ -186,15 +186,18 @@ python "<仓库目录>\wx_export.py" --contacts --refresh --out contacts.json
 
 **分类判据（已与微信 App 逐项核对，改代码前务必看懂）**：
 
-| 输出 type | 判据 | 实测（某账号） |
+| 输出 type | 判据 | 对应微信里的 |
 |---|---|---|
-| `friend` | `local_type=1` 且非群、非 gh_、非系统号 | 5196 |
-| `group` | `local_type=1` 且 `@chatroom` 结尾（**已保存到通讯录**） | 283 |
-| `group_unsaved` | 群但 `local_type != 1`（**没保存到通讯录**） | 1107 |
-| `wecom` | `local_type=5` | 25 |
-| `official` / `service` / `enterprise` | `local_type=1` 且 `gh_` 前缀，再看 `biz_info.type` = 0 / 1 / 2 | 23 / 15 / 3 |
-| `official_other` | `gh_` 但 `local_type != 1`（历史关注，已不在通讯录） | 1256 |
-| `stranger` | `local_type` 为 0 或 3 | 39976 |
+| `friend` | `local_type=1` 且非群、非 gh_、非系统号 | 联系人 |
+| `group` | `local_type=1` 且 `@chatroom` 结尾（**已保存到通讯录**） | 群聊 |
+| `group_unsaved` | 群但 `local_type != 1`（**没保存到通讯录**，微信不显示） | — |
+| `wecom` | `local_type=5` | 企业微信联系人 |
+| `official` / `service` / `enterprise` | `local_type=1` 且 `gh_` 前缀，再看 `biz_info.type` = 0 / 1 / 2 | 公众号 / 服务号 / 我的企业 |
+| `official_other` | `gh_` 但 `local_type != 1`（历史关注，已不在通讯录） | — |
+| `stranger` | `local_type` 为 0 或 3 | — |
+
+> 各类别的具体条数因账号而异，本文档不记录任何实测数字——
+> 请直接用工具对你的账号跑一次，以输出为准。
 
 **三个绝对不能用的判据**：
 

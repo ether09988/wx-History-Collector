@@ -163,10 +163,10 @@ python3 wx_export.py --contacts --refresh --out contacts.json
   {
     "id": "wxmsg-3f2a1b8c9d0e4f5a",
     "data": {
-      "chat_id": "53782458966@chatroom",
+      "chat_id": "12345678@chatroom",
       "chat_name": "某个群名",
       "chat_type": "group",
-      "msg_id": "53782458966@chatroom:12345",
+      "msg_id": "12345678@chatroom:12345",
       "time": "2026-10-18T09:15:03+08:00",
       "ts": 1792289703,
       "sender": "张三",
