@@ -25,17 +25,6 @@ This is not one monolithic script — it's three parts with clearly separated jo
 | `wcdb-key-tool/` (2907 lines) | **Extract the key from WeChat's memory** and **decrypt the encrypted DBs into plain SQLite** | Third-party (MIT, see `NOTICE`) |
 | `install.py` + `setup*.sh` (561 lines) | First-time setup: environment check, quit WeChat, re-sign, extract keys | Original work |
 
-### What wx_export.py does on top
-
-The decrypted databases are "queryable but unreadable":
-
-| What you see | What it means | Handled by |
-|---|---|---|
-| Table `Msg_d9225e13...` | md5 of the contact's WeChat ID | wx_export.py |
-| Field `real_sender_id: 12` | Who is #12 — look it up in `name2id` | wx_export.py |
-| `local_type: 49` | Link / file / quoted message | wx_export.py |
-| Body starts with `28 b5 2f fd` | zstd-compressed; decompress then extract XML titles | wx_export.py |
-
 **In one line**: `wcdb-key-tool` gets the data out of the box; `wx_export.py` turns it into
 something usable. Without either, you get nothing readable.
 

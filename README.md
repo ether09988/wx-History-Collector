@@ -24,17 +24,6 @@
 | `wcdb-key-tool/`（2907 行） | 从微信内存**取密钥**，并把加密数据库**解密成明文 SQLite** | 第三方组件（MIT，见 `NOTICE`） |
 | `install.py` + `setup*.sh`（561 行） | 首次初始化的引导：环境检查、关微信、重签、取密钥 | 本项目原创 |
 
-### wx_export.py 做了什么
-
-解密出来的数据库「能查，但看不懂」：
-
-| 你看到的 | 实际含义 | 谁来解决 |
-|---|---|---|
-| 表名 `Msg_d9225e13...` | 这是对方微信号的 md5 | wx_export.py |
-| 字段 `real_sender_id: 12` | 12 号是谁要去 `name2id` 表查 | wx_export.py |
-| `local_type: 49` | 这是链接/文件/引用类消息 | wx_export.py |
-| 消息体开头 `28 b5 2f fd` | zstd 压缩，得先解压再抠 XML 里的标题 | wx_export.py |
-
 **一句话分工**：`wcdb-key-tool` 负责把东西从盒子里拿出来，`wx_export.py` 负责把东西整理成能用的样子。缺任一步，你都拿不到能读的聊天记录。
 
 > `wcdb-key-tool` 是社区成熟实现，本项目**只调用、不修改**，按其 MIT 许可保留原始署名（详见 `NOTICE` 与 `wcdb-key-tool/LICENSE`）。
