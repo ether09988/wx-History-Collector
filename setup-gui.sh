@@ -26,6 +26,30 @@ if ! osascript -e 'return 1' >/dev/null 2>&1; then
   exit 1
 fi
 
+# ---------- 0. 前置检查：SIP 与已有密钥 ----------
+# 实测：SIP 开启时，以 root 运行的提密钥工具读不到微信容器目录（TCC 拦截），
+# 报「未找到可解密的 .db 文件」。这里提前拦下来，别让用户白跑一遍关微信、重签。
+HAS_PASS=0
+[ -s "$HOME/.wcdb-key-tool/wechat-passphrase.json" ] && HAS_PASS=1
+[ -s "$KEYS" ] && HAS_PASS=1
+if [ "$HAS_PASS" = "0" ] && csrutil status 2>/dev/null | grep -q "enabled"; then
+  echo "[ERROR] 首次提取密钥前必须先关闭 SIP。"
+  echo "        SIP 开启时，提密钥工具以 root 运行会被系统拦截，读不到微信数据目录。"
+  echo ""
+  echo "        步骤："
+  echo "          1. 重启并按住 ⌘R 进入恢复模式"
+  echo "          2. 菜单「实用工具」→「终端」"
+  echo "          3. 执行：csrutil disable"
+  echo "          4. 重启后重新运行本脚本"
+  echo ""
+  echo "        提取成功后可以再把 SIP 开回来（csrutil enable），日常使用不受影响。"
+  say "首次提取密钥需要先关闭 SIP。\n\n重启按住 ⌘R 进恢复模式 → 实用工具 → 终端 →\n输入 csrutil disable → 重启后重试。\n\n（提取成功后可以再把 SIP 开回来，不影响使用）"
+  exit 1
+fi
+if [ "$HAS_PASS" = "1" ]; then
+  echo "  （检测到已有密钥，跳过 SIP 检查——复用缓存口令不需要 root 读文件）"
+fi
+
 echo "【1/4】关闭微信"
 # 用 pkill 直接结束进程，不用 osascript 控制微信。
 # 原因：osascript 的 "quit app" 需要 macOS「自动化」隐私授权，

@@ -121,6 +121,7 @@ def find_db_dir():
     return cands[0][1]
 TMP_DECRYPTED = os.path.join(tempfile.gettempdir(), "wechat_export_cache")
 KEYS_PATH = os.path.join(WXTOOL, "all_keys.json")
+PASSPHRASE_PATH = os.path.expanduser("~/.wcdb-key-tool/wechat-passphrase.json")
 CST = timezone(timedelta(hours=8))
 
 TYPE_NAMES = {
@@ -518,11 +519,28 @@ def doctor(ddir=None):
              "（如果一直报 Operation not permitted，先给「终端」授予\n"
              "  系统设置 → 隐私与安全性 → 完全磁盘访问 权限，再完全退出终端重开）")
 
-    # 4. SIP（信息性，不作为失败判据）
+    # 密钥状态要在 SIP 判断之前算出来：SIP 是否构成问题是「有密钥/没密钥」两种情况
+    has_keys_json = os.path.exists(KEYS_PATH) and os.path.getsize(KEYS_PATH) > 10
+    has_passphrase = (os.path.exists(PASSPHRASE_PATH)
+                      and os.path.getsize(PASSPHRASE_PATH) > 10)
+    keys_ok = has_keys_json or has_passphrase
+    _key_src = "all_keys.json" if has_keys_json else ("passphrase 缓存" if has_passphrase else "")
+
+    # 4. SIP —— 对「首次提取密钥」是硬性前提（实测结论）
     sip, sip_desc = sip_state()
-    print(f" ℹ SIP: {sip_desc}")
-    if sip == "enabled":
-        print("     （本工具不需要关闭 SIP；若首次取密钥失败，见文末排查顺序）")
+    if IS_MAC and sip == "enabled" and not keys_ok:
+        line(False, "SIP", "已开启 — 首次提取密钥会被系统拦截",
+             "macOS 在 SIP 开启时会阻止 root 访问微信的容器目录，\n"
+             "  导致提密钥工具找不到 .db 文件。需要先关闭 SIP：\n"
+             "    1. 重启并按住 ⌘R 进入恢复模式\n"
+             "    2. 菜单「实用工具」→「终端」\n"
+             "    3. csrutil disable\n"
+             "    4. 重启后重新运行 setup-gui.sh\n"
+             "  提取成功后可以再把 SIP 开启回来——日常解密不受影响。")
+    else:
+        print(f" ℹ SIP: {sip_desc}")
+        if IS_MAC and sip == "enabled" and keys_ok:
+            print("     （已提取过密钥；SIP 开启不影响日常解密，只有首次提取需要关闭）")
 
     # 5. 数据库目录
     db = find_db_dir()
@@ -530,8 +548,7 @@ def doctor(ddir=None):
          "先登录微信并收发几条消息，再重试")
 
     # 6. 密钥文件
-    keys_ok = os.path.exists(KEYS_PATH) and os.path.getsize(KEYS_PATH) > 10
-    line(keys_ok, "数据库密钥", "已提取" if keys_ok else "未提取",
+    line(keys_ok, "数据库密钥", f"已就绪（{_key_src}）" if keys_ok else "未提取",
          "首次使用需要提取一次密钥：\n"
          "  macOS  ：bash setup.sh\n"
          "  Windows：python install.py --auto")
