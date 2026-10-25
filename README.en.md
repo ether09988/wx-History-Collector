@@ -28,10 +28,23 @@ Runs entirely on your machine: **no network calls, no uploads, no third-party ac
 | Windows 10/11 | ✅ Tested | **No admin rights, no WeChat modification** — one command extracts keys |
 | Linux | ❌ Not adapted | The decryption component supports it; this project does not |
 
-> **You do not need to disable SIP (System Integrity Protection).** This project never touches SIP,
-> and has been verified on a machine with SIP fully enabled. What actually matters is
-> **re-signing WeChat to an ad-hoc signature**, which strips its Hardened Runtime flag.
-> Many tutorials tell you to run `csrutil disable` — that is a heavier, unnecessary alternative.
+> **About SIP (System Integrity Protection)**
+>
+> The mainstream approach **does not require disabling SIP** — what matters is **re-signing WeChat
+> to an ad-hoc signature**, stripping its Hardened Runtime flag. This project never calls `csrutil`
+> and never asks you to disable SIP.
+>
+> One real caveat: only the **first** key extraction needs to read WeChat's process memory;
+> afterwards the passphrase is cached at `~/.wcdb-key-tool/wechat-passphrase.json` and daily
+> decryption never touches memory. That is why people report "it only needs SIP once".
+>
+> If your first extraction fails, troubleshoot in this order — **SIP last**:
+>
+> 1. Make sure WeChat is logged in and running
+> 2. Make sure the signature is `adhoc` (`python3 wx_export.py --doctor` tells you)
+> 3. Add Terminal to Full Disk Access, fully quit and reopen Terminal
+> 4. Re-run `setup.sh`
+> 5. Only then consider SIP (`csrutil disable` — requires Recovery Mode, lowers system security)
 
 ---
 
@@ -96,8 +109,7 @@ bash setup.sh              # extract keys (asks for your admin password once)
    It should print `flags=0x2(adhoc)`. If it still shows `flags=0x10000(runtime)`, the re-sign
    did not apply — check requirement #2.
 
-> **SIP stays enabled.** If some tutorial tells you to `csrutil disable`, that is a different
-> approach and this project does not need it.
+> See the SIP section near the top of this file for the full explanation.
 
 ### 3. Export
 
@@ -237,6 +249,8 @@ python wx_export.py [options]
   --decrypted DIR      Use a specific decrypted database directory
   --stat               Count only, write nothing
 
+  --jsonl              JSONL output (one record per line, for very large exports);
+                       default is a JSON array
   --split              Write private and group chats to two separate files
   --doctor             Self-check: WeChat signature / keys / cache / process, with fixes
 
@@ -325,9 +339,12 @@ You may need to re-run the initialization. On macOS, updating WeChat restores it
 signature — re-run `setup.sh`.
 
 **Do I need to disable SIP?**
-**No.** This project never touches SIP. Whether WeChat's memory can be read depends on whether
-the app carries Hardened Runtime — not on SIP. Once re-signed, exporting works with SIP fully
-enabled; this was verified on a machine with SIP on.
+This project **never calls `csrutil`** and never asks you to disable SIP. What determines whether
+WeChat's memory can be read is whether the app carries Hardened Runtime — re-signing removes it.
+
+Note: only the **first** key extraction needs process memory; afterwards the passphrase is cached,
+so daily decryption never touches memory. If your first extraction fails, follow the 5-step order
+near the top of this file, with **SIP last**.
 
 **Why does macOS need to re-sign WeChat?**
 macOS blocks one process from reading another's memory (Hardened Runtime). Re-signing is the

@@ -104,7 +104,7 @@ bash setup.sh              # 提取密钥（要输入一次管理员密码）
    应显示 `flags=0x2(adhoc)`。如果还是 `flags=0x10000(runtime)`，说明重签没成功，
    回去检查第 2 条的完全磁盘访问权限。
 
-> **不需要关闭 SIP。** 如果某个教程让你 `csrutil disable`，那是另一条路，本项目不需要。
+> 关于 SIP 的完整说明见本文开头「平台支持」下方。
 
 ### 第三步：导出
 
@@ -252,6 +252,7 @@ python wx_export.py [选项]
   --stat               只统计不写文件
 
   # 通讯录
+  --jsonl              按 JSONL 输出（每行一条，适合超大文件）；默认是 JSON 数组
   --split              私聊与群聊分别写成两个文件（<out>_private.json / <out>_group.json）
   --doctor             自检：检查微信签名/密钥/解密库/进程并给出修复建议
 
@@ -336,9 +337,14 @@ A：不会。代码里没有任何网络请求。
 A：解密组件可能需要重跑一次初始化。macOS 上微信升级会还原签名，重跑 `setup.sh` 即可。
 
 **Q：需要关闭 SIP 吗？**
-A：**不需要。** 本项目全程不碰 SIP。能否读到微信内存，取决于微信 App 有没有 Hardened Runtime，
-而不是 SIP 开不开。重签把 Hardened Runtime 去掉之后，SIP 保持开启也能正常导出——这一点已在
-SIP 开启的机器上实测验证。
+A：本项目**从不调用 `csrutil`，也不要求你关 SIP**。决定能否读到微信内存的是微信 App 有没有
+Hardened Runtime——重签把它去掉就够了。
+
+要注意的是：**只有首次提取密钥需要读进程内存**，之后口令缓存在
+`~/.wcdb-key-tool/wechat-passphrase.json`，日常解密完全不碰内存。
+所以「第一次成功后后面怎么都行」是机制决定的。
+
+如果你的首次提取失败，按本文开头的 5 步顺序排查，**SIP 放最后**。
 
 **Q：为什么 macOS 要重签微信？**
 A：macOS 不允许普通进程读其他进程内存，这是系统级限制（Hardened Runtime）。重签去掉这个标志，

@@ -57,7 +57,9 @@ def decompress(raw, ct):
     return raw.decode("utf-8", "ignore")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DECRYPTED = os.path.join(HERE, "out", "decrypted")
+# 默认解密目录与 --refresh 的输出位置保持一致：
+# 这样「先 --refresh 跑一次，后续不带 --refresh」也能直接复用缓存，不会报找不到目录
+DECRYPTED = os.path.join(tempfile.gettempdir(), "wechat_export_cache")
 WXTOOL = os.path.join(HERE, "wcdb-key-tool")
 IS_WIN = platform.system() == "Windows"
 IS_MAC = platform.system() == "Darwin"
@@ -278,7 +280,12 @@ def refresh_decrypted(out_dir: str) -> bool:
         print(f"[refresh] 找不到解密脚本: {script}", file=sys.stderr)
         return False
     if not os.path.exists(keys):
-        print(f"[refresh] 找不到密钥文件: {keys}", file=sys.stderr)
+        print(f"[ERROR] 还没提取数据库密钥：{keys}", file=sys.stderr)
+        print("        请先运行一次初始化（只需一次）：", file=sys.stderr)
+        if IS_WIN:
+            print(f'          python "{os.path.join(HERE, "install.py")}" --auto', file=sys.stderr)
+        else:
+            print(f'          bash "{os.path.join(HERE, "setup.sh")}"', file=sys.stderr)
         return False
     try:
         r = subprocess.run(
@@ -533,9 +540,15 @@ def doctor(ddir=None):
     if ddir is None:
         ddir = TMP_DECRYPTED if os.path.isdir(TMP_DECRYPTED) else None
     dec_ok = bool(ddir and os.path.isdir(os.path.join(ddir, "message")))
-    line(dec_ok, "解密库", ddir or "尚未生成",
-         "加上 --refresh 参数会自动解密：\n"
-         "  python wx_export.py --refresh --days 7 --out messages.json")
+    if dec_ok:
+        line(True, "解密库", ddir)
+    elif not keys_ok:
+        line(False, "解密库", "尚未生成",
+             "先提取密钥（见上一项），之后加 --refresh 会自动解密")
+    else:
+        line(False, "解密库", "尚未生成",
+             "加上 --refresh 参数会自动解密：\n"
+             "  python3 wx_export.py --refresh --days 7 --out messages.json")
 
     print("-" * 56)
     if ok_all:
@@ -688,6 +701,8 @@ def main():
                     help="先自动刷新解密库（输出到系统临时目录，无需 sudo）")
     ap.add_argument("--doctor", action="store_true",
                     help="自检：检查微信签名/密钥/解密库/进程，并给出修复建议")
+    ap.add_argument("--jsonl", action="store_true",
+                    help="按 JSONL 输出（每行一条记录，适合超大文件流式处理）；默认输出 JSON 数组")
     ap.add_argument("--split", action="store_true",
                     help="把私聊与群聊分别写入两个文件（<out>_private.json / <out>_group.json）")
     ap.add_argument("--emit-events", action="store_true",
@@ -767,7 +782,7 @@ def main():
             else:
                 print("[ERROR] 需要 --out 或 --stat", file=sys.stderr)
                 sys.exit(2)
-        if not (args.emit_events or args.split):
+        if args.jsonl and not (args.emit_events or args.split):
             out_fh = open(args.out, "w", encoding="utf-8")
 
     for username, last_ts, summary in sessions:
@@ -847,7 +862,11 @@ def main():
 
     if out_fh:
         out_fh.close()
-    if args.split:
+    if args.jsonl and out_fh:
+        out_fh.close()
+        print(f"OUTPUT_FILE: {os.path.abspath(args.out)}")
+        print(f"导出 {total} 条记录（JSONL），涉及 {chats_hit} 个会话", file=sys.stderr)
+    elif args.split:
         # 私聊与群聊分开写两个文件，方便 agent 分别调用
         base, ext = os.path.splitext(args.out)
         ext = ext or ".json"
@@ -862,11 +881,12 @@ def main():
             print(f"OUTPUT_FILE: {os.path.abspath(path)}")
         print(f"导出 私聊 {len(buckets['private'])} 条 / 群聊 {len(buckets['group'])} 条，"
               f"涉及 {chats_hit} 个会话", file=sys.stderr)
-    elif args.emit_events:
+    else:
+        # 默认（含 --emit-events）：输出 JSON 数组，与文档一致
         with open(args.out, "w", encoding="utf-8") as f:
             json.dump(events, f, ensure_ascii=False)
         print(f"OUTPUT_FILE: {os.path.abspath(args.out)}")
-        print(f"导出 {len(events)} 条事件，涉及 {chats_hit} 个会话", file=sys.stderr)
+        print(f"导出 {len(events)} 条记录，涉及 {chats_hit} 个会话", file=sys.stderr)
     per_chat.sort(key=lambda x: -x[1])
     print(json.dumps({
         "cutoff": datetime.fromtimestamp(cutoff, CST).isoformat(),
