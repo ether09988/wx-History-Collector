@@ -178,11 +178,18 @@ python "<仓库目录>\wx_export.py" --contacts --refresh --out contacts.json
 | 参数 | 作用 |
 |---|---|
 | `--contacts` | 导出通讯录而不是聊天消息 |
-| `--contacts-scope addressbook` | 默认。好友 + 群 + 公众号 + 企业微信账号 |
-| `--contacts-scope all` | 再加「非好友缓存」（群成员、曾聊过但没加好友的人），数量大一个量级 |
+| `--contacts-scope addressbook` | 默认。好友 + 群 + 企业微信账号（**不含公众号**） |
+| `--contacts-scope all` | 全部：再加公众号、非好友缓存（群成员等）、系统号，数量大一个量级 |
 
 **字段**：`wxid` / `name`（备注>昵称>自定义号>wxid）/ `remark` / `nickname` / `alias` /
-`type`（friend/group/official/openim/stranger/system）/ `deleted`。
+`type`（friend/group/openim/official/stranger/system）/ `deleted`。
+
+**分类判据（改代码时别踩这个坑）**：
+
+- 群 = `@chatroom` 结尾（`local_type=2` 反而统计不全，不要用）
+- 公众号 = `gh_` 前缀（**不要用 `local_type==0`**，那个字段里混着大量真人账号）
+- 好友 = `local_type=1`
+- 非好友 = `local_type` 为 0 或 3
 
 **回答用户时的注意点：**
 

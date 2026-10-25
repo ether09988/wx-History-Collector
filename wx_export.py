@@ -264,8 +264,8 @@ def export_contacts(ddir: str, scope: str = "addressbook"):
     """导出通讯录。
 
     scope:
-      addressbook（默认）—— 好友 + 群 + 公众号 + 企业微信账号
-      all                —— 再加上「非好友缓存」与系统号（数量会大很多）
+      addressbook（默认）—— 好友 + 群 + 企业微信账号（不含公众号）
+      all                —— 全部：再加上公众号、非好友缓存与系统号
     """
     con = open_db(os.path.join(ddir, "contact", "contact.db"))
     if con is None:
@@ -288,7 +288,7 @@ def export_contacts(ddir: str, scope: str = "addressbook"):
             continue
         ctype = classify_contact(username, int(lt or 0))
         stats[ctype] = stats.get(ctype, 0) + 1
-        if scope != "all" and ctype in ("stranger", "system", "other"):
+        if scope != "all" and ctype not in ("friend", "group", "openim"):
             continue
         remark = (remark or "").strip()
         nick = (nick or "").strip()
@@ -319,24 +319,23 @@ def classify_contact(username: str, local_type: int) -> str:
     u = (username or "").lower()
     if not u:
         return "other"
-    if u.endswith("@chatroom"):
+    # 群：@chatroom 结尾是最可靠的判据（local_type=2 的数量反而更少，不可靠）
+    if u.endswith("@chatroom") or u.endswith("@im.chatroom"):
         return "group"
     if u.endswith("@openim"):
         return "openim"          # 企业微信 / 开放 IM 账号
-    if u.endswith("@placeholder_foldgroup"):
+    if u.endswith("@placeholder_foldgroup") or u.endswith("@placeholder_stickyfooter"):
         return "system"
     if u in SYSTEM_ACCOUNTS:
         return "system"
+    # 公众号：只认 gh_ 前缀。不能用 local_type==0 判断——实测那个字段里混着
+    # 大量真人账号（wxid 与自定义微信号），按它分类会把 1500+ 个真人误判成公众号。
     if u.startswith("gh_"):
-        return "official"        # 公众号
+        return "official"
     if local_type == 1:
         return "friend"
-    if local_type == 2:
-        return "group"
-    if local_type == 0:
-        return "official"
-    if local_type == 3:
-        return "stranger"        # 非好友缓存（群成员等）
+    if local_type in (0, 3):
+        return "stranger"        # 非好友：群成员、曾加过未通过、已删好友
     return "other"
 
 
@@ -394,7 +393,7 @@ def main():
     ap.add_argument("--contacts", action="store_true",
                     help="导出通讯录（联系人/群/公众号），而不是聊天消息")
     ap.add_argument("--contacts-scope", default="addressbook", choices=["addressbook", "all"],
-                    help="通讯录范围：addressbook=好友+群+公众号（默认）；all=再加非好友缓存与系统号")
+                    help="通讯录范围：addressbook=好友+群+企业微信（默认）；all=全部（含公众号/非好友/系统号）")
     args = ap.parse_args()
 
     if args.refresh:

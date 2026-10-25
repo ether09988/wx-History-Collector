@@ -130,9 +130,10 @@ Want just the address book, not the chat history:
 python3 wx_export.py --contacts --refresh --out contacts.json
 ```
 
-By default this exports **friends + groups + official accounts + WeCom accounts**.
-Add `--contacts-scope all` to also include the non-friend cache (group members, people you
-chatted with but never added) — that is an order of magnitude larger.
+By default this exports **friends + groups + WeCom accounts** (**not** official accounts).
+Add `--contacts-scope all` to also include official accounts, the non-friend cache
+(group members, people you added but who never accepted) and system accounts — that is an
+order of magnitude larger.
 
 Each record contains:
 
@@ -204,8 +205,8 @@ python wx_export.py [options]
 
   # contacts
   --contacts           Export the contact list instead of messages
-  --contacts-scope     addressbook (default: friends+groups+official) or
-                       all (also include non-friend cache and system accounts)
+  --contacts-scope     addressbook (default: friends+groups+WeCom) or
+                       all (also official accounts, non-friend cache, system accounts)
 ```
 
 ---

@@ -124,8 +124,8 @@ OUTPUT_FILE: /绝对路径/messages.json
 python3 wx_export.py --contacts --refresh --out contacts.json
 ```
 
-默认导出**好友 + 群 + 公众号 + 企业微信账号**。加 `--contacts-scope all` 会连
-「非好友缓存」（群成员、曾聊过但没加好友的人）一起导出，数量会大一个量级。
+默认导出**好友 + 群 + 企业微信账号**（**不含公众号**）。加 `--contacts-scope all`
+才会连公众号、非好友缓存（群成员、曾加过没通过的人）、系统号一起导出，数量会大一个量级。
 
 每条记录包含：
 
@@ -136,7 +136,7 @@ python3 wx_export.py --contacts --refresh --out contacts.json
 | `remark` | 你给他设的备注 |
 | `nickname` | 他自己的微信昵称 |
 | `alias` | 自定义微信号（他设置的那个，可能为空） |
-| `type` | `friend` 好友 / `group` 群 / `official` 公众号 / `openim` 企业微信 / `stranger` 非好友 / `system` 系统号 |
+| `type` | `friend` 好友 / `group` 群 / `openim` 企业微信 / `official` 公众号 / `stranger` 非好友 / `system` 系统号 |
 | `deleted` | 是否已删除 |
 
 > ⚠️ 通讯录和聊天记录一样，只写在本机。**这份文件包含你全部社交关系，不要提交、不要上传。**
@@ -196,8 +196,8 @@ python wx_export.py [选项]
 
   # 通讯录
   --contacts           导出通讯录（好友/群/公众号），而不是聊天消息
-  --contacts-scope     通讯录范围：addressbook（默认，好友+群+公众号）
-                       或 all（再加非好友缓存与系统号，数量大很多）
+  --contacts-scope     通讯录范围：addressbook（默认，好友+群+企业微信）
+                       或 all（含公众号、非好友缓存、系统号，数量大很多）
 ```
 
 ---
