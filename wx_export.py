@@ -883,7 +883,7 @@ def main():
         out_fh.close()
         print(f"OUTPUT_FILE: {os.path.abspath(args.out)}")
         print(f"导出 {total} 条记录（JSONL），涉及 {chats_hit} 个会话", file=sys.stderr)
-    elif args.split:
+    elif args.split and not args.stat:
         # 私聊与群聊分开写两个文件，方便 agent 分别调用
         base, ext = os.path.splitext(args.out)
         ext = ext or ".json"
@@ -898,10 +898,18 @@ def main():
             print(f"OUTPUT_FILE: {os.path.abspath(path)}")
         print(f"导出 私聊 {len(buckets['private'])} 条 / 群聊 {len(buckets['group'])} 条，"
               f"涉及 {chats_hit} 个会话", file=sys.stderr)
-    else:
+    elif not args.stat:
         # 默认（含 --emit-events）：输出 JSON 数组，与文档一致
-        with open(args.out, "w", encoding="utf-8") as f:
-            json.dump(events, f, ensure_ascii=False)
+        # --stat 时 args.out 是 None，不能进这里
+        try:
+            with open(args.out, "w", encoding="utf-8") as f:
+                json.dump(events, f, ensure_ascii=False)
+        except OSError as e:
+            print(f"[ERROR] 无法写入输出文件: {args.out}", file=sys.stderr)
+            print(f"        {e.strerror or e}", file=sys.stderr)
+            print("        请换一个你有写权限的路径，例如 ~/Desktop/messages.json",
+                  file=sys.stderr)
+            sys.exit(6)
         print(f"OUTPUT_FILE: {os.path.abspath(args.out)}")
         print(f"导出 {len(events)} 条记录，涉及 {chats_hit} 个会话", file=sys.stderr)
     per_chat.sort(key=lambda x: -x[1])

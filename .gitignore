@@ -21,3 +21,8 @@ Thumbs.db
 desktop.ini
 .idea/
 .vscode/
+
+# 导出产物（含全部社交关系 / 聊天内容，绝不入库）
+contacts.json
+messages.jsonl
+wechat_contacts*.json
