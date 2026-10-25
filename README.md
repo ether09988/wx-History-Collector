@@ -1,257 +1,157 @@
 # Financial-data-Collector
 
-> 把你自己电脑上微信的**个人聊天记录**导出成干净、结构化的 JSON，供任何 AI agent、分析脚本或知识库工具读取。
+> 把散落在你电脑各个金融软件里的**个人数据**取出来，变成干净的 JSON，供任何 AI agent、分析脚本或知识库读取。
 
-纯本地运行：**不联网、不上传、不需要登录任何第三方服务**。所有解密和导出都在你自己的机器上完成。
+你的股票自选、持仓、交易记录、聊天里的研报和观点——它们都躺在不同软件的本地数据库里，格式各异、互相不通。
+这个项目做的事很简单：**在你自己电脑上，把这些数据取出来，输出成统一、可读的 JSON。**
+
+全程本地运行：**不联网、不上传、不需要登录任何第三方服务。**
 
 ---
 
-## 这个工具做什么
+## 采集器
 
-微信把聊天记录加密存在本地数据库里（WCDB / SQLCipher）。本工具做三件事：
+每个采集器独立一个目录，互不依赖，可以用一个，也可以全用。
 
-1. **取密钥** —— 从本机微信进程里读到你**自己账号**的数据库密钥
-2. **解密** —— 把加密库解密成临时快照（用完即弃，不长期留存）
-3. **导出** —— 抽成标准 JSON，字段干净、可直接喂给 LLM 或分析脚本
+| 采集器 | 数据来源 | 状态 | 说明 |
+|---|---|---|---|
+| [微信聊天记录](collectors/wechat/) | 微信桌面版 4.x 本地数据库 | ✅ 可用（macOS / Windows 已实测） | 私聊与群聊文字消息，含发送人、时间、会话名 |
+| QQ 聊天记录 | QQ 桌面版本地数据库 | 🚧 规划中 | — |
+| 同花顺自选 / 持仓 | 同花顺客户端本地数据 | 🚧 规划中 | — |
+| 券商交易记录 | 客户端导出文件 | 🚧 规划中 | — |
 
-### 能导出什么
+欢迎提 issue 说你还想要哪个数据源。
 
-| 会导出 | 不会导出 |
-|---|---|
-| 私聊、群聊的文字消息（含发送人、时间、会话名） | 公众号推送、系统通知（默认过滤，可开） |
-| 链接、文件、引用消息的**标题** | 文件正文本身 |
-| 图片/表情/语音/视频：记 `[image]`、`[emoji]` 等占位类型 | 图片、语音的实际内容 |
+---
 
-### 平台支持
+## 设计原则
 
-| 平台 | 状态 | 初始化方式 |
-|---|---|---|
-| macOS 11+ | ✅ 已实测 | 需要给微信重签名一次（要管理员密码） |
-| Windows 10/11 | ✅ 已实测 | **不需要管理员权限、不需要改微信**，一条命令自动提取 |
-| Linux | ❌ 未适配 | 解密组件理论支持，本项目未做适配 |
+1. **只在本地跑** —— 不联网、不上传、不经过任何服务器。你可以自己 `grep` 验证代码里没有网络请求。
+2. **输出标准 JSON** —— 不绑定任何特定 agent 或产品。拿到文件，谁都能读。
+3. **只读你的数据** —— 不修改原软件的数据，不发送消息，不碰网络协议。
+4. **一个采集器一个目录** —— 想用哪个装哪个，互不牵连。
+5. **不藏着写** —— 每个采集器都说明它读哪个文件、怎么取的、输出什么字段。
 
 ---
 
 ## 快速开始
 
-### 第一步：准备
-
-**通用要求**
-
-- 微信桌面版 4.x，**已登录并保持运行**（要读它的进程内存）
-- 建议装 `zstandard`，否则链接/文件消息只能拿到占位符
-  - macOS：`pip3 install zstandard --break-system-packages`
-  - Windows：`pip install zstandard`
-
-**macOS 额外要求**
-
-- Python 3.8+
-- Xcode 命令行工具（提供 `lldb`）：`xcode-select --install`
-
-**Windows 额外要求**
-
-- **Python 3.10+**（解密组件用到 3.10 语法）
-- 无需 `lldb`、无需管理员权限
-
-### 第二步：初始化（只需一次）
-
-**Windows**
-
-```powershell
-python install.py          # 先看环境检查
-python install.py --auto   # 自动提取密钥（微信保持登录状态）
-```
-
-**macOS**
+以微信采集器为例：
 
 ```bash
-python3 install.py                    # 先看环境检查
-bash setup.sh                         # 提取密钥（要输入一次管理员密码）
-```
+git clone https://github.com/ether09988/Financial-data-Collector.git
+cd Financial-data-Collector/collectors/wechat
 
-> macOS 为什么需要重签微信：macOS 不允许普通程序读其他进程内存（Hardened Runtime），
-> 重签只是去掉这个限制，读完密钥就结束。想恢复官方签名，**重新安装一次微信**即可。
->
-> 微信 4.1+ 在这条路径上还需要你在微信里「退出登录 → 重新登录」一次——
-> 新版微信只在登录那一刻计算密钥。
+# 1. 检查环境
+python3 install.py            # Windows: python install.py
 
-### 第三步：导出
+# 2. 初始化（只需一次）
+python3 install.py --auto     # Windows，无需管理员权限
+bash setup.sh                 # macOS，需要输入一次管理员密码
 
-```bash
-# macOS
+# 3. 导出
 python3 wx_export.py --refresh --days 7 --out messages.json
-
-# Windows
-python wx_export.py --refresh --days 7 --out messages.json
 ```
 
-成功会打印：
-
-```
-OUTPUT_FILE: /绝对路径/messages.json
-导出 3574 条消息，涉及 135 个会话
-```
+每个采集器的完整说明在它自己的 `README.md` 里。
 
 ---
 
-## 输出格式
+## 输出约定
 
-输出是一个 JSON 数组，每个元素一条消息：
+所有采集器输出统一形态：**一个 JSON 数组，每个元素一条记录**。
 
 ```json
 [
   {
-    "id": "wxmsg-3f2a1b8c9d0e4f5a",
+    "id": "唯一ID（用于增量去重）",
     "data": {
-      "chat_id": "53782458966@chatroom",
-      "chat_name": "某个群名",
-      "chat_type": "group",
-      "msg_id": "53782458966@chatroom:12345",
       "time": "2026-10-18T09:15:03+08:00",
-      "ts": 1792289703,
-      "sender": "张三",
-      "type": "text",
-      "text": "消息正文，最长 800 字"
+      "...": "各采集器自己的字段"
     }
   }
 ]
 ```
 
-| 字段 | 说明 |
-|---|---|
-| `chat_id` | 会话唯一 ID（群是 `xxx@chatroom`，私聊是 wxid 或自定义号） |
-| `chat_name` | 会话显示名（备注优先，其次昵称） |
-| `chat_type` | `group` 群聊 / `private` 私聊 / `official` 公众号 |
-| `msg_id` | 消息唯一 ID，可用于增量去重 |
-| `time` | RFC3339 带时区 |
-| `sender` | 发送人显示名 |
-| `type` | `text` / `image` / `emoji` / `video` / `app` / `system` 等 |
-| `text` | 正文；非文本消息为占位符或提取到的标题 |
-
----
-
-## 命令行参数
-
-```
-python wx_export.py [选项]
-
-  --refresh            先刷新解密库（推荐，能拿到最新消息）
-  --days N             导出最近 N 天（默认 7）
-  --since TS           从指定 Unix 时间戳开始（覆盖 --days）
-  --out FILE           输出文件路径（默认写到系统临时目录 messages.json）
-  --emit-events        输出 [{id,data}] 事件数组格式 + 打印 OUTPUT_FILE
-  --max-per-chat N     单个会话最多导出条数（默认 300）
-  --include-official   包含公众号与系统通知
-  --decrypted DIR      指定解密库目录（配合外部解密流程时用）
-  --stat               只统计不写文件
-```
+统一的 `id` 让你可以做增量处理：只处理上次之后新增的记录，不用每次全量重跑。
 
 ---
 
 ## 接入 AI Agent
 
-导出结果是纯 JSON，任何能读文件的东西都能用。两种常见接法：
+导出结果就是普通 JSON，任何能读文件的东西都能用：
 
-**1. 一次性喂给 agent**
-
-```bash
-python wx_export.py --refresh --days 1 --out today.json
-# 然后把 today.json 作为上下文交给 agent
-```
-
-**2. 作为周期性数据源**
-
-在 agent 或调度器里配置一条定时任务，执行：
+**一次性使用**
 
 ```bash
-python wx_export.py --refresh --days 1 --emit-events --out events.json
+python3 wx_export.py --refresh --days 1 --out today.json
+# 把 today.json 作为上下文交给 agent
 ```
 
-工具会打印 `OUTPUT_FILE: <路径>`，你的程序读这一行拿到文件位置即可。
-事件里的 `msg_id` 是稳定的，方便你做增量去重：只处理上次之后新出现的消息。
+**周期性数据源**
 
-**给 AI agent 的安装说明**：仓库里的 [`AGENT-INSTALL.md`](AGENT-INSTALL.md) 是专门写给 agent 看的安装剧本，
-里面写清了每一步的判断条件、失败处理和红线（比如不许替用户输密码、不许伪造成功）。
-你可以直接把那个文件丢给你的 agent。
+配一条定时任务，执行导出命令；程序读 `OUTPUT_FILE:` 那一行拿到文件路径，
+按记录的 `id` 去重后增量处理。
+
+**给 agent 的安装说明**
+
+每个采集器目录里都有一份 `AGENT-INSTALL.md`，是专门写给 AI agent 看的操作剧本：
+每一步的判断条件、失败处理、红线（不许替用户输密码、不许伪造成功）都写在里面。
+你可以直接把那个文件丢给你的 agent，让它自己完成安装。
 
 ---
 
-## 项目结构
+## 目录结构
 
 ```
 Financial-data-Collector/
-├── README.md               本说明
-├── AGENT-INSTALL.md        给 AI agent 的安装剧本
-├── WINDOWS-TEST.md         Windows 测试清单与已知风险点
-├── install.py              环境检查 + 密钥提取（Windows 自动）
-├── setup.sh                仅 macOS：密钥提取初始化
-├── wx_export.py            核心：解密 → 解析 → 导出 JSON
-├── LICENSE                 本项目许可（MIT）
-├── NOTICE                  第三方组件声明
-└── wcdb-key-tool/          第三方解密组件（见 NOTICE）
-    ├── wcdb_key_tool_macos.py
-    ├── wcdb_key_tool_windows.py
-    ├── wcdb_key_tool.py
-    └── LICENSE
+├── README.md                    本文件：项目总览
+├── LICENSE                      MIT
+├── NOTICE                       第三方组件声明
+└── collectors/                  每个采集器一个目录
+    └── wechat/                  微信聊天记录采集
+        ├── README.md            采集器说明
+        ├── AGENT-INSTALL.md     给 AI agent 的安装剧本
+        ├── WINDOWS-TEST.md      Windows 支持说明与排障
+        ├── install.py           环境检查 + 密钥初始化
+        ├── setup.sh             仅 macOS：初始化脚本
+        ├── wx_export.py         核心：解密 → 解析 → 导出 JSON
+        └── wcdb-key-tool/       第三方解密组件（见 NOTICE）
 ```
-
-安装后会在本机生成这些私有文件（已在 `.gitignore` 中排除，**不要提交**）：
-
-- `wcdb-key-tool/all_keys.json` —— 各数据库的密钥
-- `~/.wcdb-key-tool/wechat-passphrase.json` —— 登录口令缓存（权限 600）
 
 ---
 
 ## 隐私与安全
 
-- **全程本地**：不联网、不上传、不经过任何服务器。
-- **解密快照是临时的**：写到系统临时目录，每次导出覆盖，不在文档目录长期留存。
-- **只读**：不修改微信数据库，不发送消息，不碰网络协议。
-- **密钥敏感**：`all_keys.json` 和 `wechat-passphrase.json` 等于你聊天记录的钥匙，
-  不要提交、不要分享、不要传网盘。
+- 数据不离开你的电脑。没有任何上传逻辑。
+- 各采集器会在本机生成密钥、缓存或临时快照，这些路径都在对应 README 里写明，
+  并且已加入 `.gitignore`，**不要提交、不要分享**。
+- 采集器只读你自己的数据，不碰他人账号。
 
 ---
 
-## 常见问题
+## 路线图
 
-**Q：会把我的数据传到哪吗？**
-A：不会。代码里没有任何网络请求，你可以自己 `grep -rn "http" *.py` 验证。
-
-**Q：微信升级后还能用吗？**
-A：解密组件可能需要重跑一次初始化。macOS 上微信升级会还原签名，重跑 `setup.sh` 即可。
-
-**Q：为什么 macOS 要重签微信？**
-A：macOS 不允许普通进程读其他进程内存，这是系统级限制。重签去掉 Hardened Runtime 是
-相对轻量的做法（另一条路是关 SIP，影响面更大，不推荐）。
-
-**Q：读出来的图片是空的？**
-A：微信的图片是加密 `.dat` 文件，本工具只记 `[image]` 占位类型，不解析图片内容。
-
-**Q：导出的消息不全？**
-A：微信本地只保留它在你这台机器上收发的消息。手机上的完整历史需要先用微信的
-「聊天记录迁移」功能同步到电脑。
-
-**Q：会不会导致账号异常？**
-A：工具只读取本地数据库和进程内存，不修改微信任何行为、不碰它的网络通信，
-理论上不会。但 macOS 上重签微信属于修改第三方程序，腾讯是否判定为异常，
-本项目无法保证，风险由使用者自行评估。
+- [x] 微信聊天记录（macOS / Windows）
+- [ ] QQ 聊天记录
+- [ ] 同花顺自选 / 持仓
+- [ ] 券商交易记录（客户端导出格式解析）
+- [ ] 统一的增量调度脚本
 
 ---
 
 ## 许可
 
-本项目原创部分（`wx_export.py`、`install.py`、`setup.sh`、文档）采用 **MIT License**，
-版权归 © 2026 ether09988。
+本项目原创部分采用 **MIT License**，版权归 © 2026 ether09988。
 
-`wcdb-key-tool/` 为第三方开源组件，遵循其原有 MIT 许可，版权归原作者所有，
-详见 [`NOTICE`](NOTICE) 与 `wcdb-key-tool/LICENSE`。
+各采集器引用的第三方组件遵循其原有许可，具体见根目录 LICENSE 与 NOTICE，以及对应采集器目录下的声明。
 
 ## 免责声明
 
-本工具仅供**导出你自己设备上、你自己账号**的聊天记录，用于个人数据备份与分析。
+本工具仅供**导出你自己设备上、你自己账号**的个人数据，用于个人数据备份与分析。
 
-- 请勿用于获取他人聊天记录
-- 请遵守你所在地区的法律法规与微信服务条款
+- 请勿用于获取他人数据
+- 请遵守你所在地区的法律法规与相关软件的服务条款
 - 使用本工具产生的任何后果由使用者自行承担
 
-本工具不含任何协议逆向、不绕过任何服务端限制，只读取你本机已有的数据。
+本项目不含任何协议逆向、不绕过任何服务端限制，只读取你本机已有的数据。

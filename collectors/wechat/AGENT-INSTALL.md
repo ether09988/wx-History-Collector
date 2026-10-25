@@ -10,12 +10,15 @@
 
 | 事项 | 怎么确认 |
 |---|---|
-| 仓库在本机的绝对路径 | 用户给的路径；没给就问一句 |
+| 采集器在本机的绝对路径 | 用户给的路径；没给就问。**注意是本采集器目录（`collectors/wechat/`），不是仓库根目录** |
 | 操作系统 | **macOS 或 Windows**。Linux 明确不支持，别硬装 |
 | 你能否在该目录执行命令 | `ls <目录>`（Windows 用 `dir`） |
 
-目录里应该有：`install.py`、`wx_export.py`、`setup.sh`、`wcdb-key-tool/`。
+目录里应该有：`README.md`、`AGENT-INSTALL.md`、`install.py`、`wx_export.py`、`setup.sh`、`wcdb-key-tool/`。
 缺文件说明仓库没下全，让用户重新 clone。
+
+如果你拿到的路径里直接就有这些文件，说明对；如果是仓库根目录（里面只有 `README.md` 和 `collectors/`），
+请进到 `collectors/wechat/` 再操作。
 
 **两个平台的关键差异，先记住：**
 
@@ -33,9 +36,9 @@
 
 ```bash
 # macOS
-python3 "<仓库目录>/install.py" --json
+python3 "<本采集器目录>/install.py" --json
 # Windows
-python "<仓库目录>\install.py" --json
+python "<本采集器目录>\install.py" --json
 ```
 
 读返回的 JSON：
@@ -61,7 +64,7 @@ python "<仓库目录>\install.py" --json
 ### Windows（简单，可能你自己就能跑）
 
 ```powershell
-python "<仓库目录>\install.py" --auto
+python "<本采集器目录>\install.py" --auto
 ```
 
 这条命令扫微信进程内存取密钥，**不需要密码、不改微信**。前提是**微信正在运行且已登录**。
@@ -72,7 +75,7 @@ python "<仓库目录>\install.py" --auto
 这一步要管理员密码，只能由用户在「终端」执行：
 
 ```bash
-bash "<仓库目录>/setup.sh"
+bash "<本采集器目录>/setup.sh"
 ```
 
 **你必须提前跟用户讲清三件事**（这是风险告知，别跳过）：
@@ -93,8 +96,8 @@ bash "<仓库目录>/setup.sh"
 ## 第 3 步：确认密钥就位
 
 ```bash
-python3 "<仓库目录>/install.py" --json    # macOS
-python "<仓库目录>\install.py" --json     # Windows
+python3 "<本采集器目录>/install.py" --json    # macOS
+python "<本采集器目录>\install.py" --json     # Windows
 ```
 
 确认 `ready` 为 `true`。如果不是，回到第 2 步。
@@ -105,9 +108,9 @@ python "<仓库目录>\install.py" --json     # Windows
 
 ```bash
 # macOS
-python3 "<仓库目录>/wx_export.py" --refresh --days 1 --emit-events --out events.json
+python3 "<本采集器目录>/wx_export.py" --refresh --days 1 --emit-events --out events.json
 # Windows
-python "<仓库目录>\wx_export.py" --refresh --days 1 --emit-events --out events.json
+python "<本采集器目录>\wx_export.py" --refresh --days 1 --emit-events --out events.json
 ```
 
 预期最后一行：
