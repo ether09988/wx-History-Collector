@@ -246,6 +246,100 @@ def refresh_decrypted(out_dir: str) -> bool:
     return ok
 
 
+# 微信内置的系统号 / 服务号，不属于「联系人」
+SYSTEM_ACCOUNTS = {
+    "filehelper", "medianote", "floatbottle", "weixin", "weibo", "qqmail", "qqsafe",
+    "fmessage", "notifymessage", "qmessage", "tmessage", "brandsessionholder",
+    "officialaccounts", "mphelper", "weixinreminder", "notification_messages",
+    "newsapp", "appbrandcustomerservicemsg", "weixinpay", "weixinclear",
+    "exmail_tool", "shake", "qqfriend", "linkedin", "tmessage", "voip",
+}
+
+
+CONTACT_TYPE_ORDER = {"friend": 0, "group": 1, "official": 2, "openim": 3,
+                       "other": 4, "stranger": 5, "system": 6}
+
+
+def export_contacts(ddir: str, scope: str = "addressbook"):
+    """导出通讯录。
+
+    scope:
+      addressbook（默认）—— 好友 + 群 + 公众号 + 企业微信账号
+      all                —— 再加上「非好友缓存」与系统号（数量会大很多）
+    """
+    con = open_db(os.path.join(ddir, "contact", "contact.db"))
+    if con is None:
+        print("[ERROR] 找不到 contact.db，无法导出通讯录", file=sys.stderr)
+        return None, None
+    try:
+        rows = con.execute(
+            "select username, nick_name, remark, alias, local_type, delete_flag from contact"
+        ).fetchall()
+    except Exception as e:
+        print(f"[ERROR] 读取通讯录失败: {e}", file=sys.stderr)
+        con.close()
+        return None, None
+    con.close()
+
+    stats = {}
+    events = []
+    for username, nick, remark, alias, lt, deleted in rows:
+        if not username:
+            continue
+        ctype = classify_contact(username, int(lt or 0))
+        stats[ctype] = stats.get(ctype, 0) + 1
+        if scope != "all" and ctype in ("stranger", "system", "other"):
+            continue
+        remark = (remark or "").strip()
+        nick = (nick or "").strip()
+        alias = (alias or "").strip()
+        name = remark or nick or alias or username
+        events.append({
+            "id": "wxcontact-" + hashlib.md5(username.encode()).hexdigest()[:20],
+            "data": {
+                "wxid": username,
+                "name": name,
+                "remark": remark,
+                "nickname": nick,
+                "alias": alias,
+                "type": ctype,
+                "deleted": bool(deleted),
+            },
+        })
+    events.sort(key=lambda e: (CONTACT_TYPE_ORDER.get(e["data"]["type"], 9), e["data"]["name"]))
+    return events, stats
+
+
+def classify_contact(username: str, local_type: int) -> str:
+    """把一条 contact 记录归类。
+
+    注意：不能用「wxid_ 开头」判断是不是真人——大量老用户把微信号设成了
+    自定义字符串（如 xingxing123），那些同样是真实好友。
+    """
+    u = (username or "").lower()
+    if not u:
+        return "other"
+    if u.endswith("@chatroom"):
+        return "group"
+    if u.endswith("@openim"):
+        return "openim"          # 企业微信 / 开放 IM 账号
+    if u.endswith("@placeholder_foldgroup"):
+        return "system"
+    if u in SYSTEM_ACCOUNTS:
+        return "system"
+    if u.startswith("gh_"):
+        return "official"        # 公众号
+    if local_type == 1:
+        return "friend"
+    if local_type == 2:
+        return "group"
+    if local_type == 0:
+        return "official"
+    if local_type == 3:
+        return "stranger"        # 非好友缓存（群成员等）
+    return "other"
+
+
 def base_type(local_type: int) -> int:
     """微信 4.x 的 local_type 是 64 位：低 32 位是消息类型，高位是子类型。"""
     return int(local_type) & 0xFFFFFFFF
@@ -297,6 +391,10 @@ def main():
     ap.add_argument("--emit-events", action="store_true",
                     help="输出 [{id,data}] 事件数组，并在结束时打印 OUTPUT_FILE 路径")
     ap.add_argument("--since", type=int, default=0, help="起始 unix 时间戳（覆盖 --days）")
+    ap.add_argument("--contacts", action="store_true",
+                    help="导出通讯录（联系人/群/公众号），而不是聊天消息")
+    ap.add_argument("--contacts-scope", default="addressbook", choices=["addressbook", "all"],
+                    help="通讯录范围：addressbook=好友+群+公众号（默认）；all=再加非好友缓存与系统号")
     args = ap.parse_args()
 
     if args.refresh:
@@ -304,6 +402,23 @@ def main():
             print("[ERROR] 解密库刷新失败", file=sys.stderr)
             sys.exit(3)
         args.decrypted = TMP_DECRYPTED
+
+    if args.contacts:
+        ddir = args.decrypted
+        if not os.path.isdir(os.path.join(ddir, "contact")):
+            print(f"[ERROR] 找不到解密后的 contact 目录: {ddir}/contact", file=sys.stderr)
+            print("        首次使用请加上 --refresh 参数（会先自动解密）", file=sys.stderr)
+            sys.exit(2)
+        out_path = args.out or os.path.join(tempfile.gettempdir(), "wechat_contacts.json")
+        events, stats = export_contacts(ddir, args.contacts_scope)
+        if events is None:
+            sys.exit(2)
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(events, f, ensure_ascii=False)
+        print(f"OUTPUT_FILE: {os.path.abspath(out_path)}")
+        brief = ", ".join(f"{k}={v}" for k, v in sorted(stats.items(), key=lambda x: -x[1]))
+        print(f"导出 {len(events)} 个联系人条目（库内合计: {brief}）", file=sys.stderr)
+        return
 
     ddir = args.decrypted
     if not os.path.isdir(os.path.join(ddir, "message")):

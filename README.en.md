@@ -17,6 +17,7 @@ Runs entirely on your machine: **no network calls, no uploads, no third-party ac
 |---|---|
 | Text messages from private and group chats (with sender, time, chat name) | Official account posts, system notifications (filtered by default, can be enabled) |
 | **Titles** of link / file / quoted messages | The file contents themselves |
+| **Full contact list**: friends, groups, official accounts (including people you never chatted with) | — |
 | Images / emoji / voice / video: recorded as placeholder types like `[image]`, `[emoji]` | Actual image or audio content |
 
 ### Platform support
@@ -121,6 +122,33 @@ exported 1287 messages across 73 chats
 > There is exactly one success criterion: **the `OUTPUT_FILE` line appears and the count is > 0.**
 > A bigger or smaller number says nothing about success.
 
+### 4 (optional): export contacts
+
+Want just the address book, not the chat history:
+
+```bash
+python3 wx_export.py --contacts --refresh --out contacts.json
+```
+
+By default this exports **friends + groups + official accounts + WeCom accounts**.
+Add `--contacts-scope all` to also include the non-friend cache (group members, people you
+chatted with but never added) — that is an order of magnitude larger.
+
+Each record contains:
+
+| Field | Description |
+|---|---|
+| `wxid` | Unique account ID |
+| `name` | Display name (remark > nickname > custom alias > wxid) |
+| `remark` | The remark you set |
+| `nickname` | Their own WeChat nickname |
+| `alias` | Their custom WeChat ID (may be empty) |
+| `type` | `friend` / `group` / `official` / `openim` / `stranger` / `system` |
+| `deleted` | Whether the contact was deleted |
+
+> ⚠️ Like chat history, this stays on your machine. **The file maps out your entire social
+> graph — never commit or upload it.**
+
 ---
 
 ## Output format
@@ -173,6 +201,11 @@ python wx_export.py [options]
   --include-official   Include official accounts and system notifications
   --decrypted DIR      Use a specific decrypted database directory
   --stat               Count only, write nothing
+
+  # contacts
+  --contacts           Export the contact list instead of messages
+  --contacts-scope     addressbook (default: friends+groups+official) or
+                       all (also include non-friend cache and system accounts)
 ```
 
 ---

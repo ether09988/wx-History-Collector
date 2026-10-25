@@ -161,6 +161,39 @@ OUTPUT_FILE: <输出文件的绝对路径>
 
 ---
 
+## 第 4.5 步：如果用户要的是「联系人/通讯录」
+
+如果用户说的是「我的好友列表」「我有多少群」「某某人的微信是多少」「导一下通讯录」，
+用通讯录模式，不要用消息模式：
+
+```bash
+# macOS
+python3 "<仓库目录>/wx_export.py" --contacts --refresh --out contacts.json
+# Windows
+python "<仓库目录>\wx_export.py" --contacts --refresh --out contacts.json
+```
+
+成功同样打印 `OUTPUT_FILE: <路径>`，条数 > 0 即为成功。
+
+| 参数 | 作用 |
+|---|---|
+| `--contacts` | 导出通讯录而不是聊天消息 |
+| `--contacts-scope addressbook` | 默认。好友 + 群 + 公众号 + 企业微信账号 |
+| `--contacts-scope all` | 再加「非好友缓存」（群成员、曾聊过但没加好友的人），数量大一个量级 |
+
+**字段**：`wxid` / `name`（备注>昵称>自定义号>wxid）/ `remark` / `nickname` / `alias` /
+`type`（friend/group/official/openim/stranger/system）/ `deleted`。
+
+**回答用户时的注意点：**
+
+1. 通讯录**没有**「是否在线」「最近联系时间」这类信息——本地库里没有。
+2. 这是**只读导出**。本工具不能发消息、不能加好友、不能改备注。
+3. 如果用户问「能不能用这个给他发消息」——明确说**不能**，这是设计上的边界，
+   本工具只读本地数据，不联网、不调用微信接口。
+4. 提醒用户这份文件等同于完整社交关系图谱，**不要上传、不要提交、不要分享**。
+
+---
+
 ## 第 5 步：按用户需求导出
 
 问清用户要什么，然后选参数：
