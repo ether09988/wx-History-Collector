@@ -23,6 +23,6 @@ desktop.ini
 .vscode/
 
 # 导出产物（含全部社交关系 / 聊天内容，绝不入库）
-contacts.json
-messages.jsonl
-wechat_contacts*.json
+# 任何 .json / .jsonl 都可能是导出结果，一律忽略；项目本身不依赖任何 json 文件
+*.json
+*.jsonl

@@ -1,7 +1,7 @@
 NOTICE
 ======
 
-Financial-data-Collector
+wx-History-Collector
 Copyright (c) 2026 ether09988
 Licensed under the MIT License (see LICENSE).
 
@@ -34,13 +34,16 @@ The original work of this project consists of:
 
   - wx_export.py     Decryption orchestration, message parsing (including zstd
                      decompression of compressed message payloads), media/app
-                     message title extraction, incremental export, and the
-                     JSON event output format.
+                     message title extraction, incremental export, contact-book
+                     classification, schema probing, concurrency locking, and
+                     the JSON event output format.
   - install.py       Cross-platform environment detection and initialization
                      assistant (macOS and Windows), including automatic key
                      extraction on Windows.
   - setup.sh         macOS initialization flow (re-signing and key extraction).
-  - Documentation    README.md, AGENT-INSTALL.md, WINDOWS-TEST.md.
+  - setup-gui.sh     Same flow driven by native macOS dialogs, so an AI agent
+                     can run it without the user touching a terminal.
+  - Documentation    README.md, README.en.md, AGENT.md, WINDOWS-TEST.md.
 
 These files are Copyright (c) 2026 ether09988 and licensed under the MIT License.
 
