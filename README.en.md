@@ -15,6 +15,61 @@ Runs entirely on your machine: **no network calls, no uploads, no third-party ac
 
 ---
 
+## What the project is made of
+
+This is not one monolithic script — it's three parts with clearly separated jobs:
+
+| Component | Responsibility | Origin |
+|---|---|---|
+| `wx_export.py` (919 lines) | **Translate decrypted databases into readable chats / contacts** | Original work |
+| `wcdb-key-tool/` (2907 lines) | **Extract the key from WeChat's memory** and **decrypt the encrypted DBs into plain SQLite** | Third-party (MIT, see `NOTICE`) |
+| `install.py` + `setup*.sh` (561 lines) | First-time setup: environment check, quit WeChat, re-sign, extract keys | Original work |
+
+### Why wcdb-key-tool is required
+
+WeChat's chat history is not a normal database — it's **encrypted**. Opening it directly gives you:
+
+```
+First 16 bytes:      a5ba 84e7 ec8a eda2 d560 17c0 7ed7   <- detected as "data"
+As a normal DB:      Error: file is not a database
+```
+
+After decryption it's ordinary SQLite:
+
+```
+First 16 bytes:      5351 4c69 7465 2066 6f72 6d61 7420   <- "SQLite format 3."
+As a normal DB:      3459 conversations                      <- queryable
+```
+
+`wcdb-key-tool` does exactly that "turn an unopenable file into a queryable one" job. Two steps:
+
+1. **`extract` (once)** — make WeChat re-login, use `lldb` to break on
+   `CCKeyDerivationPBKDF` inside WeChat's process, capture the derivation parameters,
+   run 256,000 PBKDF2 rounds to derive the master passphrase, then verify the salt of
+   each of the 31 databases
+2. **`decrypt` (every export)** — use the cached passphrase to decrypt all 31 databases
+   into plain SQLite
+
+### What wx_export.py does on top
+
+The decrypted databases are "queryable but unreadable":
+
+| What you see | What it means | Handled by |
+|---|---|---|
+| Table `Msg_d9225e13...` | md5 of the contact's WeChat ID | wx_export.py |
+| Field `real_sender_id: 12` | Who is #12 — look it up in `name2id` | wx_export.py |
+| `local_type: 49` | Link / file / quoted message | wx_export.py |
+| Body starts with `28 b5 2f fd` | zstd-compressed; decompress then extract XML titles | wx_export.py |
+
+**In one line**: `wcdb-key-tool` gets the data out of the box; `wx_export.py` turns it into
+something usable. Without either, you get nothing readable.
+
+> `wcdb-key-tool` is a mature community implementation. This project **only calls it, never
+> modifies it**, and keeps the original attribution as required by its MIT license
+> (see `NOTICE` and `wcdb-key-tool/LICENSE`).
+
+---
+
 ## What it exports
 
 | Exported | Not exported |
